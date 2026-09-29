@@ -1,0 +1,2111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23ffffff'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%237636ff' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23000000'/%3E%3C/svg%3E">
+<title>Relational Encounter Protocol</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--accent:#7636ff;}
+  body{background:#fff;color:#000;font-family:'Courier New',Courier,monospace;overflow:hidden;}
+  canvas{display:block;}
+  input[type=range]{-webkit-appearance:none;width:100%;background:transparent;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:16px;width:8px;background:#000;cursor:pointer;margin-top:-7px;}
+  input[type=range]:disabled::-webkit-slider-thumb{background:#999;cursor:default;}
+  input[type=range]::-webkit-slider-runnable-track{width:100%;height:2px;background:#e5e7eb;}
+  .layer{opacity:0;pointer-events:none;transition:opacity .7s ease;}
+  .layer.show{opacity:1;pointer-events:auto;}
+  .legend-item{cursor:pointer;transition:opacity .2s;}
+  .legend-item.disabled{opacity:.3;text-decoration:line-through;}
+  .row-container{border:1px solid #000;height:36px;}
+  .row-focus{transition:opacity .3s ease;}
+  .row-focus.dimmed{opacity:.15;}
+  .stage-seg{cursor:pointer;transition:all .3s;}
+  .stage-seg.active{color:#000;font-weight:bold;}
+  .stage-seg{color:#bbb;}
+  #tooltip{position:fixed;pointer-events:none;background:#fff;border:1px solid #000;padding:10px 14px;font-size:10px;line-height:1.7;z-index:100;display:none;min-width:170px;}
+  #tooltip .tt-type{font-weight:bold;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:3px;}
+  .adv-panel{max-height:0;overflow:hidden;transition:max-height .5s ease;}
+  .adv-panel.open{max-height:620px;}
+  .ro-line{border-bottom:1px dotted #ccc;}
+  #seal-overlay{position:fixed;inset:0;background:rgba(255,255,255,.96);z-index:200;display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;}
+  #jump-overlay{position:fixed;inset:0;background:#fff;z-index:210;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+  .btn{background:#fff;border:1px solid #000;padding:9px 20px;font-family:inherit;font-size:10px;letter-spacing:2px;cursor:pointer;transition:all .2s;text-transform:uppercase;}
+  .btn:hover{background:#000;color:#fff;}
+  .btn:disabled{border-color:#ccc;color:#ccc;cursor:default;}
+  .btn:disabled:hover{background:#fff;color:#ccc;}
+  .btn-dotted{border:2px dotted #000;border-radius:9999px;background:transparent;color:#000;padding:12px 40px;font-size:13px;letter-spacing:2px;cursor:pointer;transition:all .3s;font-family:inherit;}
+  .btn-dotted:hover{background:#000;color:#fff;border-style:solid;}
+  /* ---- full-screen narrative scenes ---- */
+  .scene{position:fixed;inset:0;background:#fff;z-index:60;display:none;overflow:auto;}
+  .scene.show{display:block;}
+  .fadeup{opacity:0;transform:translateY(14px);transition:opacity .7s ease,transform .7s ease;}
+  .fadeup.in{opacity:1;transform:translateY(0);}
+  .clause{border:1px solid #000;padding:18px 22px;}
+  .kv{display:flex;justify-content:space-between;border-bottom:1px solid #000;padding:9px 2px;}
+  .strike{text-decoration:line-through;text-decoration-thickness:2px;}
+  .bigstamp{border:3px solid #d00000;color:#d00000;border-radius:50%;width:150px;height:150px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:bold;letter-spacing:2px;line-height:1.6;opacity:0;transform:scale(2.2) rotate(-18deg);}
+  .bigstamp.in{opacity:.85;transform:scale(1) rotate(-8deg);transition:all .45s cubic-bezier(.16,.84,.3,1);}
+  .seal-black{border:3px solid #000;color:#000;border-radius:50%;}
+  .seal-purple{border-color:var(--accent);color:var(--accent);}
+  .border-dotted-custom{border:1px dashed #666;}
+  .border-b-dotted{border-bottom:1px dashed #666;}
+  .border-r-dotted{border-right:1px dashed #666;}
+  .sample-bar{border-bottom:1px dashed #666;padding:8px;background:rgba(245,245,245,.5);}
+  .reg-ornament{position:relative;height:1px;background:var(--accent);margin:15px 0;}
+  .reg-ornament::before,.reg-ornament::after{content:'';position:absolute;top:-2px;width:5px;height:5px;border-radius:50%;background:var(--accent);}
+  .reg-ornament::before{left:0;}.reg-ornament::after{right:0;}
+  .data-row{display:grid;grid-template-columns:80px 1fr;border-bottom:1px dashed #ccc;padding:4px 0;gap:8px;}
+  .data-row:last-child{border-bottom:none;}
+  #authorize-fill{position:absolute;left:0;top:0;height:100%;width:0;background:rgba(118,54,255,.18);pointer-events:none;}
+  #btn-authorize{position:relative;overflow:hidden;}
+  #btn-authorize > span{position:relative;z-index:1;}
+  .photo-box{width:120px;height:140px;border:1px dashed #000;position:relative;overflow:hidden;background:#fff;cursor:pointer;flex:none;}
+  .photo-box .cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;filter:grayscale(1) contrast(1.6) brightness(1.05);}
+  .photo-box .cam-canvas{position:absolute;inset:0;width:100%;height:100%;display:none;}
+  .photo-box .cam-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:9px;letter-spacing:1px;color:#000;line-height:1.6;}
+  .photo-box .cam-scanline{position:absolute;left:0;width:100%;height:2px;background:var(--accent);top:0;display:none;animation:camscan 1.6s linear infinite;}
+  @keyframes camscan{0%{top:0}100%{top:calc(100% - 2px)}}
+  .photo-box.live .cam-video{display:block;}
+  .photo-box.live .cam-scanline{display:block;}
+  .photo-box.live .cam-hint{display:none;}
+  .photo-box.done .cam-canvas{display:block;}
+  .photo-box.done .cam-hint{display:none;}
+  .photo-box.denied{border-style:solid;}
+  .progbar{height:100%;background:var(--accent);width:0;}
+  .accent-rule{height:1px;background:var(--accent);width:180px;margin:14px auto;position:relative;}
+  .accent-rule::before,.accent-rule::after{content:'';position:absolute;top:-3px;width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  .accent-rule::before{left:0;}.accent-rule::after{right:0;}
+  .accent-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:8px;}
+  .accent-text{color:var(--accent);}
+  .blink{animation:blink 1.1s steps(2,start) infinite;}
+  @keyframes blink{to{visibility:hidden;}}
+  .dotgrid{position:absolute;inset:0;}
+  .menubtn{position:fixed;top:11px;right:14px;z-index:130;}
+  .hubcard{border:1px solid #000;padding:26px;cursor:pointer;transition:all .2s;}
+  .hubcard:hover{background:#000;color:#fff;}
+  /* arrival calibration panels (file 2) */
+  .arrival-panel{transition:transform .8s cubic-bezier(.25,1,.5,1),opacity .6s ease;position:absolute;top:90px;bottom:0;width:320px;background:rgba(255,255,255,.93);z-index:20;padding:32px;}
+  .panel-left-active{left:0;transform:translateX(0);opacity:1;border-right:1px solid #000;}
+  .panel-left-hidden{left:0;transform:translateX(-100%);opacity:0;pointer-events:none;}
+  .panel-right-active{right:0;transform:translateX(0);opacity:1;border-left:1px solid #000;}
+  .panel-right-hidden{right:0;transform:translateX(100%);opacity:0;pointer-events:none;}
+  #scene-arrival input[type=range]{-webkit-appearance:none;width:100%;background:transparent;}
+  #scene-arrival input[type=range]:focus{outline:none;}
+  #scene-arrival input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:14px;width:4px;background:#000;cursor:ew-resize;margin-top:-6px;}
+  #scene-arrival input[type=range]::-webkit-slider-runnable-track{width:100%;height:2px;cursor:pointer;background:#e5e7eb;}
+</style>
+</head>
+<body class="text-[11px] tracking-widest uppercase select-none">
+
+<!-- ============ STAGE RAIL ============ -->
+<div class="fixed top-0 left-0 right-0 z-50 flex justify-center gap-8 py-3 bg-white/90 border-b border-gray-100 text-[10px]">
+  <span class="stage-seg active" data-stage="0">01 · ENCOUNTER</span>
+  <span class="stage-seg" data-stage="1">02 · RECORD</span>
+  <span class="stage-seg" data-stage="2">03 · ANALYZE</span>
+  <span class="stage-seg" data-stage="3">04 · TRANSLATE</span>
+  <span class="stage-seg" data-stage="4">05 · ARCHIVE</span>
+</div>
+
+<!-- ============ ACT 1 UI ============ -->
+<div id="ui-act1" class="layer show fixed inset-0 z-10" style="padding-top:40px;">
+  <!-- legend -->
+  <div class="absolute top-14 left-10 space-y-3" id="legend-container"></div>
+  <!-- archive data -->
+  <div class="absolute bottom-24 right-10 leading-loose text-right">
+    <p class="font-bold border-b border-black pb-1 mb-1">ARCHIVE DATA</p>
+    <p>CASE 2042-01982</p>
+    <p>HUMAN ID: H-01982</p>
+    <p>CO-RESIDENT ID: N-08321</p>
+  </div>
+  <!-- timeline -->
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 w-1/2 flex flex-col gap-2">
+    <div class="flex justify-between items-center">
+      <span id="time-display" class="font-bold bg-white/80 px-1">T=00</span>
+      <div class="flex gap-3 items-center">
+        <button id="begin-analysis" class="btn hidden">BEGIN ANALYSIS →</button>
+        <button id="skip-btn" class="text-gray-500 hover:text-black bg-white/80 px-1">跳过观察 →</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 bg-white/80 px-2 py-1">
+      <span>0</span>
+      <input type="range" id="time-slider" min="0" max="150" value="0" class="flex-1" disabled>
+      <span>150</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ACT 2 UI (REPORT) ============ -->
+<div id="ui-analysis" class="layer fixed inset-0 z-10 overflow-auto" style="padding-top:30px;">
+  <div class="max-w-[1400px] mx-auto px-10 py-8" id="report-content">
+    <div class="text-center mb-6">
+      <h1 class="text-4xl font-bold tracking-wider">RELATIONAL ANALYSIS</h1>
+    </div>
+    <div class="flex justify-between items-start mb-6">
+      <div class="flex items-center gap-6">
+        <div id="party-human-anchor" class="w-[160px] h-[120px]"></div>
+        <div class="leading-relaxed">
+          <p class="font-bold">HUMAN PARTY</p>
+          <p>ID: H-01982</p><p>STATUS: Validated</p>
+          <p class="mt-1">SIGNATURE HASH:</p><p>7F2A...91C3</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-6">
+        <div class="text-right leading-relaxed">
+          <p class="font-bold">NON-HUMAN PARTY</p>
+          <p>ID: N-08321</p><p>STATUS: Validated</p>
+          <p class="mt-1">SIGNATURE HASH:</p><p>3B7D...42A</p>
+        </div>
+        <div id="party-animal-anchor" class="w-[160px] h-[120px]"></div>
+      </div>
+    </div>
+    <hr class="border-gray-400 mb-6">
+    <div class="space-y-4 mb-6" id="rows-container"></div>
+    <hr class="border-gray-400 mb-6">
+    <div class="grid grid-cols-3 gap-8">
+      <div>
+        <p class="font-bold mb-3">FIELD COMPRESSION MAP</p>
+        <div id="compression-anchor" class="w-[392px] h-[252px] border border-gray-200"></div>
+      </div>
+      <div class="border-l border-gray-300 pl-8">
+        <p class="font-bold mb-3">RELATIONSHIP DATA</p>
+        <div class="space-y-2 leading-relaxed" id="relationship-data"></div>
+      </div>
+      <div class="border-l border-gray-300 pl-8">
+        <p class="font-bold mb-3">LEGAL NOTE</p>
+        <p class="normal-case tracking-normal leading-relaxed text-[12px]">
+          This charter is generated based on observed interactions and submitted declarations. It does not constitute legal status by itself. Final legal recognition is subject to authorization by the Co-Residence Civic Registry.
+        </p>
+      </div>
+    </div>
+    <div class="flex justify-between mt-10">
+      <button class="btn" id="export-png">导出为 PNG</button>
+      <button class="btn" id="generate-archive">GENERATE ARCHIVE →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ACT 3 UI (ORBIT) ============ -->
+<div id="ui-orbit" class="layer fixed inset-0 z-10" style="padding-top:40px;">
+  <div class="absolute top-14 left-12">
+    <div class="text-3xl font-bold">ORBITAL RECORD</div>
+    <div class="text-[12px] text-gray-500 mt-2">CO-RESIDENCE CIVIC REGISTRY ARCHIVE // 2050</div>
+  </div>
+  <div class="absolute top-14 right-12 text-right">
+    <div id="barcode-anchor" class="w-[210px] h-[40px] ml-auto"></div>
+    <div class="text-[11px] mt-1">ID: GENOME-77X-BETA</div>
+  </div>
+  <!-- legend -->
+  <div class="absolute left-12 bottom-40 text-[10px] space-y-3" id="orbit-legend"></div>
+  <!-- advanced read-only -->
+  <div class="absolute right-10 top-32 w-[360px]">
+    <button class="btn w-full" id="adv-toggle">ADVANCED VIEW (READ ONLY)</button>
+    <div class="adv-panel border border-gray-200 mt-2 bg-white" id="adv-panel">
+      <div class="p-5 text-[10px] space-y-4" id="adv-content"></div>
+    </div>
+  </div>
+  <div id="orbit-hint" class="absolute bottom-8 left-1/2 -translate-x-1/2 text-[10px] text-gray-400" style="display:none;">CLICK AGAIN OR PRESS ESC TO RESET</div>
+  <!-- user-triggered seal (no auto popup) -->
+  <div class="absolute bottom-10 left-1/2 -translate-x-1/2">
+    <button class="btn" id="seal-btn">SEAL ARCHIVE 封存档案 →</button>
+  </div>
+</div>
+
+<!-- ============ SEAL OVERLAY ============ -->
+<div id="seal-overlay">
+  <div class="text-[11px] text-gray-500 tracking-[4px]">ARCHIVE SEALED</div>
+  <div class="accent-rule"></div>
+  <div class="text-3xl font-bold tracking-[4px]">RELATIONAL ID&nbsp;&nbsp;R-08321</div>
+  <div class="flex gap-5 mt-6">
+    <button class="btn" id="restart-btn">↻ RESTART 重新相遇</button>
+    <button class="btn" id="collective-btn">VIEW COLLECTIVE ARCHIVE 进入集体档案库 →</button>
+  </div>
+</div>
+
+<div id="jump-overlay">
+  <div class="text-lg tracking-[5px]">COLLECTIVE ANIMAL ARCHIVE</div>
+  <div class="text-[11px] text-gray-500 tracking-[2px]">COLLECTIVE INDEX // (整合阶段占位)</div>
+  <div class="text-[11px] mt-24 cursor-pointer underline" id="jump-return">CLICK TO RETURN</div>
+</div>
+
+<!-- ===================== NARRATIVE SCENES ===================== -->
+<!-- 0. TITLE -->
+<div id="scene-title" class="scene show">
+  <div id="cover-bg" class="absolute inset-0 overflow-hidden"></div>
+  <div class="relative z-10 h-full flex flex-col items-center justify-center text-center px-6">
+    <div class="text-[11px] tracking-[6px] text-gray-500 mb-6">CO-RESIDENCE CIVIC REGISTRY // EST. 2040</div>
+    <h1 class="text-[72px] font-bold tracking-[0.04em] leading-none" style="font-family:system-ui,-apple-system,sans-serif;">AFTER PET</h1>
+    <div class="text-lg tracking-[0.2em] mt-4 uppercase">Pet Status Transition Centre</div>
+    <div class="mt-16 flex flex-col items-center gap-5">
+      <button class="btn-dotted" id="btn-begin">BEGIN REGISTRATION</button>
+      <button class="text-[10px] text-gray-500 underline" id="title-browse">BROWSE THE REGISTRY (COLLECTIVE INDEX)</button>
+    </div>
+    <div class="absolute bottom-6 text-[9px] text-gray-400 tracking-[3px]">A SPECULATIVE CIVIC PROTOCOL · HUMAN / NON-HUMAN</div>
+  </div>
+</div>
+
+<!-- 1. PREAMBLE -->
+<div id="scene-preamble" class="scene">
+  <div class="max-w-[900px] mx-auto px-10 py-20">
+    <div class="text-[10px] tracking-[5px] text-gray-500 mb-2">STEP 01 / 03 — LEGISLATIVE FRAME</div>
+    <h2 class="text-4xl font-bold tracking-wider mb-8">THE PREAMBLE</h2>
+    <div class="space-y-4">
+      <div class="clause">
+        <div class="font-bold mb-2">ARTICLE 0 — THE ABOLITION</div>
+        <p class="normal-case tracking-normal leading-relaxed text-[12px]">The legal category of the "pet", and with it the institution of animal <span class="strike">ownership</span>, is abolished. No being may henceforth be held as property.</p>
+      </div>
+      <div class="clause">
+        <div class="font-bold mb-2">ARTICLE 1 — RELATIONAL RECOGNITION</div>
+        <p class="normal-case tracking-normal leading-relaxed text-[12px]">A human–non-human bond is no longer certified by title, but by <span class="border-b border-black">observed relational conduct</span> within a shared field.</p>
+      </div>
+      <div class="clause">
+        <div class="font-bold mb-2">ARTICLE 2 — DUAL AGENCY</div>
+        <p class="normal-case tracking-normal leading-relaxed text-[12px]">Recognition requires the assent of both parties. The non-human party's consent is inferred from its voluntary approach, stay and synchrony — its withdrawal is binding.</p>
+      </div>
+      <div class="clause">
+        <div class="font-bold mb-2">ARTICLE 3 — THE PROTOCOL</div>
+        <p class="normal-case tracking-normal leading-relaxed text-[12px]">The Relational Encounter Protocol records the encounter, translates it into a Relational Diffraction, and issues a co-generated Relational ID upon registration.</p>
+      </div>
+    </div>
+    <div class="flex justify-end mt-10"><button class="btn" id="btn-preamble-ok">I ACKNOWLEDGE 我已知晓 →</button></div>
+  </div>
+</div>
+
+<!-- 2. STATUS TRANSITION -->
+<div id="scene-transition" class="scene">
+  <div class="max-w-[900px] mx-auto px-10 py-20">
+    <div class="text-[10px] tracking-[5px] text-gray-500 mb-2">STEP 02 / 03 — DISSOLUTION OF THE OLD RECORD</div>
+    <h2 class="text-4xl font-bold tracking-wider mb-10">STATUS TRANSITION</h2>
+    <div class="grid grid-cols-2 gap-10 items-center">
+      <div class="border border-black p-6 relative">
+        <div class="font-bold border-b border-black pb-2 mb-3">FORMER RECORD (OWNERSHIP)</div>
+        <div class="space-y-2 text-[11px]">
+          <div class="kv"><span>REGISTRY TYPE</span><span class="strike">PET / PROPERTY</span></div>
+          <div class="kv"><span>HOLDER</span><span class="strike">H-01982</span></div>
+          <div class="kv"><span>HELD BEING</span><span class="strike">N-08321</span></div>
+          <div class="kv"><span>TITLE</span><span class="strike">DEED OF OWNERSHIP</span></div>
+        </div>
+        <div class="bigstamp absolute -right-6 -top-8" id="stamp-abolished">ABOLISHED<br>2040<br>ACT §0</div>
+      </div>
+      <div>
+        <div class="border border-dashed border-black p-6">
+          <div class="font-bold border-b border-black pb-2 mb-3">NEW RECORD (RELATIONAL)</div>
+          <div class="space-y-2 text-[11px]">
+            <div class="kv"><span>REGISTRY TYPE</span><span>CO-RESIDENCE</span></div>
+            <div class="kv"><span>PARTY A</span><span>H-01982</span></div>
+            <div class="kv"><span>PARTY B</span><span>N-08321</span></div>
+            <div class="kv"><span>RELATIONAL ID</span><span class="text-gray-400">— PENDING ENCOUNTER —</span></div>
+          </div>
+        </div>
+        <p class="normal-case tracking-normal text-[11px] mt-4 text-gray-600">The old deed is dissolved. A new identity can only be co-generated through an observed encounter.</p>
+      </div>
+    </div>
+    <div class="flex justify-end mt-12"><button class="btn" id="btn-transition-ok">PROCEED TO CALIBRATION 前往校准 →</button></div>
+  </div>
+</div>
+
+<!-- 3. ARRIVAL / CALIBRATION (file 2: 3-step panel calibration) -->
+<div id="scene-arrival" class="scene">
+  <div class="absolute top-0 left-0 w-full h-[90px] px-8 border-b border-gray-200 flex justify-between items-center bg-white z-30">
+    <div>
+      <div class="text-xl font-bold tracking-[3px]">RELATIONAL ENCOUNTER PROTOCOL</div>
+      <div id="arrival-subtitle" class="text-gray-500 text-[11px] tracking-[2px]">PHASE 01-A: HUMAN CALIBRATION</div>
+    </div>
+    <div class="text-right text-[10px] text-gray-400 space-y-1">
+      <div>OPERATOR ID: SYS-992</div>
+      <div>SYSTEM TIME: <span id="arrival-sys-time" class="text-black">00:00:00</span></div>
+    </div>
+  </div>
+
+  <div id="panel-human" class="arrival-panel panel-left-active">
+    <div class="font-bold border-b border-black pb-2 mb-5">HUMAN PARTICIPANT</div>
+    <button id="human-seed" class="w-full py-2 border border-black hover:bg-black hover:text-white transition mb-6">CALIBRATE NEW SEED</button>
+    <div id="human-controls" class="space-y-5"></div>
+  </div>
+
+  <div id="panel-animal" class="arrival-panel panel-right-hidden">
+    <div class="font-bold border-b border-black pb-2 mb-5 text-right">NON-HUMAN CO-RESIDENT</div>
+    <button id="animal-seed" class="w-full py-2 border border-black hover:bg-black hover:text-white transition mb-6">CALIBRATE NEW SEED</button>
+    <div id="animal-controls" class="space-y-5"></div>
+  </div>
+
+  <div id="arrival-center-line" class="absolute top-[90px] bottom-0 left-1/2 w-[1px] bg-gray-200 z-10 opacity-0 transition-opacity duration-1000 pointer-events-none"></div>
+  <div id="arrival-canvas" class="absolute inset-0 z-0 pointer-events-none"></div>
+
+  <div class="absolute bottom-10 left-1/2 -translate-x-1/2 z-40">
+    <button id="arrival-wizard" class="px-8 py-3 border border-black bg-white hover:bg-black hover:text-white transition tracking-[3px] text-[11px]">NEXT: CO-RESIDENT CALIBRATION →</button>
+  </div>
+</div>
+
+<!-- 4. DUAL CONSENT -->
+<div id="scene-consent" class="scene">
+  <div class="max-w-[1000px] mx-auto px-10 py-16">
+    <div class="text-center mb-2 text-[11px] tracking-[5px] text-gray-500">ARCHIVE SEALED</div>
+    <h2 class="text-center text-3xl font-bold tracking-[4px] mb-1">RELATIONAL ID&nbsp;&nbsp;R-08321</h2>
+    <div class="text-center text-[10px] text-gray-400 tracking-[3px] mb-12">STEP OF MUTUAL ASSENT</div>
+    <div class="grid grid-cols-2 gap-10">
+      <div class="border border-black p-6">
+        <div class="font-bold border-b border-black pb-2 mb-4">HUMAN PARTY — DECLARED CONSENT</div>
+        <p class="normal-case tracking-normal text-[12px] leading-relaxed mb-6">I recognise this being not as property but as a co-resident, and I enter this relation by declaration.</p>
+        <button class="btn w-full" id="btn-human-declare">I DECLARE MY CONSENT 我声明同意</button>
+        <div class="text-center text-[11px] mt-4 text-gray-400" id="human-declared-state">— NOT YET DECLARED —</div>
+      </div>
+      <div class="border border-black p-6">
+        <div class="font-bold border-b border-black pb-2 mb-4">NON-HUMAN PARTY — INFERRED CONSENT</div>
+        <p class="normal-case tracking-normal text-[11px] text-gray-500 mb-4">Inferred automatically from the recorded encounter (voluntary approach, stay & synchrony vs. withdrawal).</p>
+        <div id="nh-consent-body" class="text-[11px]"></div>
+      </div>
+    </div>
+    <div class="flex justify-end mt-10"><button class="btn" id="btn-consent-next" disabled>CONTINUE 继续 →</button></div>
+  </div>
+</div>
+
+<!-- 5. REVIEW / FAILURE -->
+<div id="scene-review" class="scene">
+  <div class="max-w-[900px] mx-auto px-10 py-20">
+    <div class="text-[10px] tracking-[5px] text-red-600 mb-2">REGISTRATION WITHHELD</div>
+    <h2 class="text-4xl font-bold tracking-wider mb-2">MANUAL REVIEW REQUIRED</h2>
+    <p class="normal-case tracking-normal text-[12px] text-gray-600 mb-10">The protocol could not establish the conditions for legal recognition. No certificate is issued at this time.</p>
+    <div class="border border-black p-6">
+      <div class="font-bold border-b border-black pb-2 mb-3">UNMET CRITERIA</div>
+      <div id="review-reasons" class="text-[11px] space-y-2"></div>
+    </div>
+    <div class="flex justify-end gap-4 mt-10">
+      <button class="btn" id="btn-review-hub">RETURN TO HUB</button>
+      <button class="btn" id="btn-review-restart">↻ RESTART 重新相遇</button>
+    </div>
+  </div>
+</div>
+
+<!-- 6. REGISTRATION -->
+<div id="scene-registration" class="scene">
+  <div class="min-h-full flex justify-center px-10 py-10">
+    <div class="w-full max-w-[1200px]">
+      <div class="flex justify-between items-end mb-2">
+        <div>
+          <h1 class="text-3xl font-bold tracking-widest mb-1">CO-RESIDENCE REGISTRATION</h1>
+          <p class="text-[10px]">A FORMAL RECORD OF A HUMAN–NON-HUMAN CO-RESIDENCE RELATIONSHIP</p>
+        </div>
+        <div class="text-[9px] space-y-1 text-right">
+          <div>REGISTRATION DATE&nbsp;&nbsp;08/27/2042</div>
+          <div>NEXT REVIEW&nbsp;&nbsp;08/27/2043</div>
+          <div>STATUS&nbsp;&nbsp;<span id="reg-status" class="font-bold">PENDING</span></div>
+        </div>
+      </div>
+
+      <div class="reg-ornament"></div>
+
+      <div class="border-dotted-custom p-6">
+        <div class="sample-bar"><span class="text-sm">SAMPLE [CR] : 01</span></div>
+
+        <div class="grid grid-cols-2 gap-8 mt-6">
+          <div class="flex flex-col justify-between border-r-dotted pr-8">
+            <div id="reg-genome" class="w-[280px] h-[280px] mx-auto"></div>
+
+            <div class="mt-12 relative">
+              <p class="font-bold text-[13px] mb-4 flex items-center">
+                <span class="accent-dot"></span>REGISTRAR VALIDATION
+              </p>
+              <p class="leading-relaxed">CO-RESIDENCE CIVIC<br>REGISTRY<br>OFFICIAL SEAL</p>
+
+              <div class="bigstamp seal-purple absolute" id="stamp-approved" style="width:96px;height:96px;right:0;top:0;">
+                APPROVED<br>2042<br>IRTC
+              </div>
+
+              <div class="mt-10 border-t border-black pt-2">
+                <div class="flex items-end mb-2">
+                  <span>REGISTRAR:</span><span class="border-b border-black flex-1 ml-2 inline-block"></span>
+                </div>
+                <p>DATE: 2042.08.27</p>
+              </div>
+
+              <button class="btn w-full mt-6 py-3" id="btn-authorize">
+                <div id="authorize-fill"></div>
+                <span>HOLD TO AUTHORIZE</span>
+              </button>
+              <div class="text-[9px] text-gray-500 mt-2 text-center" id="authorize-hint">
+                HOLD THE BUTTON TO AUTHORIZE · 长按授权
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col">
+            <div class="border-b-dotted pb-6 mb-6">
+              <p class="font-bold text-[13px] mb-3 flex items-center"><span class="accent-dot"></span>HUMAN</p>
+              <div class="grid grid-cols-[1fr_120px] gap-4">
+                <div class="text-[10px]">
+                  <div class="data-row"><span>ID</span><span class="scramble" data-val="H-01982">#$@*%!</span></div>
+                  <div class="data-row"><span>STATUS</span><span class="scramble" data-val="CITIZEN">&*^%$</span></div>
+                  <div class="data-row"><span>ROLE</span><span class="scramble" data-val="PRIMARY CARE PARTNER">@#$ *&^% #$%</span></div>
+                  <div class="data-row"><span>DUTY</span><span class="scramble" data-val="DAILY / MEDICAL CARE">&*^%$ / @#$% *&</span></div>
+                  <div class="data-row"><span>CONSENT</span><span class="scramble" data-val="DECLARED">!@#$%^</span></div>
+                  <div class="data-row"><span>SIGNATURE</span><span>H-SIG 7F2A...91C3</span></div>
+                </div>
+                <div class="flex flex-col items-end gap-2">
+                  <div class="photo-box" id="photo-h">
+                    <video class="cam-video" autoplay playsinline muted></video>
+                    <canvas class="cam-canvas" width="120" height="140"></canvas>
+                    <div class="cam-hint">CLICK TO<br>INITIALIZE<br>SCAN</div>
+                    <div class="cam-scanline"></div>
+                  </div>
+                  <div id="reg-human-sig" class="w-[80px] h-[80px]"></div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p class="font-bold text-[13px] mb-3 flex items-center"><span class="accent-dot"></span>NON-HUMAN</p>
+              <div class="grid grid-cols-[1fr_120px] gap-4">
+                <div class="text-[10px]">
+                  <div class="data-row"><span>ID</span><span class="scramble" data-val="N-08321">^&*(%</span></div>
+                  <div class="data-row"><span>SPECIES</span><span class="scramble" data-val="CANIS">!@#$</span></div>
+                  <div class="data-row"><span>STATUS</span><span class="scramble" data-val="CO-RESIDENT">%^&* @#$</span></div>
+                  <div class="data-row"><span>AGENCY</span><span class="scramble" data-val="VERIFIED">*(^%$</span></div>
+                  <div class="data-row"><span>CONSENT</span><span class="scramble" data-val="TRANSLATED">#$%^&*</span></div>
+                  <div class="data-row"><span>TRACE</span><span>N-SIG 3B7D...42A</span></div>
+                </div>
+                <div class="flex flex-col items-end gap-2">
+                  <div class="photo-box" id="photo-a">
+                    <video class="cam-video" autoplay playsinline muted></video>
+                    <canvas class="cam-canvas" width="120" height="140"></canvas>
+                    <div class="cam-hint">CLICK TO<br>INITIALIZE<br>SCAN</div>
+                    <div class="cam-scanline"></div>
+                  </div>
+                  <div id="reg-animal-sig" class="w-[80px] h-[80px]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end mt-8">
+        <button class="btn" id="btn-issue" disabled>ISSUE CERTIFICATE 签发证书 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 7. CERTIFICATE -->
+<div id="scene-certificate" class="scene">
+  <div class="max-w-[900px] mx-auto px-10 py-16">
+    <div class="border-2 border-black p-12 text-center relative">
+      <div class="text-[10px] tracking-[6px] text-gray-500 mb-4">CO-RESIDENCE CIVIC REGISTRY</div>
+      <h2 class="text-4xl font-bold tracking-[6px] mb-2">CERTIFICATE</h2>
+      <div class="text-[11px] tracking-[3px] text-gray-500 mb-8">OF HUMAN–NON-HUMAN CO-RESIDENCE</div>
+      <div class="accent-rule"></div>
+      <div id="cert-body" class="text-[12px] space-y-3 max-w-[560px] mx-auto text-left"></div>
+      <div class="bigstamp seal-purple mx-auto mt-10 in" style="width:130px;height:130px;">RECOGNISED<br>R-08321<br>2042</div>
+    </div>
+    <div class="flex flex-wrap justify-center gap-4 mt-10">
+      <button class="btn" id="btn-cert-collective">VIEW COLLECTIVE ARCHIVE</button>
+      <button class="btn" id="btn-cert-civ">VIEW CIVILIZATION MAP</button>
+      <button class="btn" id="btn-cert-hub">HUB</button>
+      <button class="btn" id="btn-cert-restart">↻ RESTART 重新相遇</button>
+    </div>
+  </div>
+</div>
+
+<!-- 8. HUB -->
+<div id="scene-hub" class="scene">
+  <div class="max-w-[1000px] mx-auto px-10 py-20">
+    <div class="text-[10px] tracking-[5px] text-gray-500 mb-2">REGISTRY INDEX</div>
+    <h2 class="text-4xl font-bold tracking-wider mb-10">THE HUB</h2>
+    <div class="grid grid-cols-2 gap-5">
+      <div class="hubcard" id="hub-restart"><div class="font-bold mb-2">01 — THE PROTOCOL</div><div class="normal-case tracking-normal text-[11px] opacity-80">Begin or restart a relational encounter.</div></div>
+      <div class="hubcard" id="hub-collective"><div class="font-bold mb-2">02 — COLLECTIVE ARCHIVE</div><div class="normal-case tracking-normal text-[11px] opacity-80">Browse the genome archive of other co-residents.</div></div>
+      <div class="hubcard" id="hub-civ"><div class="font-bold mb-2">03 — CIVILIZATION MAP</div><div class="normal-case tracking-normal text-[11px] opacity-80">The macro evolution of co-residence over time.</div></div>
+      <div class="hubcard" id="hub-dissent"><div class="font-bold mb-2">04 — DISSENT PRECEDENT</div><div class="normal-case tracking-normal text-[11px] opacity-80">A case the registry declined to recognise.</div></div>
+      <div class="hubcard" id="hub-about"><div class="font-bold mb-2">05 — ABOUT</div><div class="normal-case tracking-normal text-[11px] opacity-80">The project and its premises.</div></div>
+    </div>
+    <div class="flex justify-end mt-10"><button class="btn" id="hub-close">CLOSE</button></div>
+  </div>
+</div>
+
+<!-- 9. ABOUT -->
+<div id="scene-about" class="scene">
+  <div class="max-w-[800px] mx-auto px-10 py-20">
+    <h2 class="text-4xl font-bold tracking-wider mb-8">ABOUT</h2>
+    <p class="normal-case tracking-normal text-[13px] leading-loose mb-4">Relational Encounter Protocol is a speculative design project set after a fictional Pet Identity Abolition Act, when society can no longer define human–animal relations through ownership.</p>
+    <p class="normal-case tracking-normal text-[13px] leading-loose mb-4">The project proposes a civic protocol that observes how two beings actually behave in a shared space, then translates those behaviours — distance, approach, avoidance, following, synchrony, dwelling — into a co-generated visual identity: a Relational Diffraction.</p>
+    <p class="normal-case tracking-normal text-[13px] leading-loose mb-10">It asks whether a relation, rather than an individual or a deed of title, might be the proper unit of recognition — and what it means when a non-human's consent, inferred from behaviour, is allowed to be binding.</p>
+    <div class="flex justify-end"><button class="btn" id="about-back">BACK TO HUB</button></div>
+  </div>
+</div>
+
+<button class="btn menubtn" id="menu-fab">≡ HUB</button>
+
+<div id="tooltip"></div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const TYPES=['CO_PRESENCE','CARE','RESOURCE','EMOTIONAL','SPATIAL'];
+const COL={
+  CO_PRESENCE:[112,214,255],CARE:[208,0,0],RESOURCE:[86,11,173],
+  EMOTIONAL:[255,112,166],SPATIAL:[212,215,0]
+};
+const DESC={
+  CO_PRESENCE:"Shared spatial proximity without direct interaction.",
+  CARE:"Grooming or physical support initiated.",
+  RESOURCE:"Sharing territory center or resources.",
+  EMOTIONAL:"Posture mimicry, respiration synchronized.",
+  SPATIAL:"Yielding right of way, mutual boundary."
+};
+const RING_BASE=[160,220,280,340,400];
+const ROW_LABEL=['CO-PRESENCE','CARE','RESOURCE SHARING','EMOTIONAL SYNC','SPATIAL NEGOTIATION'];
+
+// phases
+const P={ENCOUNTER:0,REPLAY:1,MORPH_A:2,ANALYSIS:3,MORPH_B:4,ORBIT:5};
+let phase=P.ENCOUNTER;
+
+let nodes=[];
+let stats=null;
+let currentTime=0;
+let cooldown=0;
+let avoidCount=0;
+let prevD=999, prevClose=false;
+let human,animal;
+let cells=[];
+let cellGap;
+let visibleLayers=[true,true,true,true,true];
+let focusLayer=-1;
+let hoverNode=null, hoverCell=-1;
+let morphT0=0;
+const MORPH_A_MS=2700, MORPH_B_MS=3100;
+const MAX_T=150;          // encounter length (was 100)
+const COMP_COLS=14;       // compression map columns (was 12)
+const COMP_ROWS=9;        // compression map rows (was 7)
+let orbitScale=0.85;
+let ringStartAngles=[];
+let sealed=false;
+let engagedClose=false;     // decisive-avoidance state
+let protocolRunning=false;  // encounter only runs after arrival confirmation
+let humanDeclared=false;    // human declared consent
+let consentResult=null;     // computed dual-consent result
+
+// tooltip
+const tooltip=document.getElementById('tooltip');
+
+// ============================================================
+// SETUP
+// ============================================================
+function setup(){
+  const c=createCanvas(windowWidth,windowHeight);
+  c.elt.id='main-p5-canvas';
+  c.elt.style.position='fixed';
+  c.elt.style.inset='0';
+  c.elt.style.zIndex='0';
+  angleMode(RADIANS);strokeCap(SQUARE);
+
+  orbitScale=constrain(min((height*0.92)/880,(width*0.62)/900),0.55,1);
+  for(let i=0;i<5;i++){
+    randomSeed(101+i*7);
+    ringStartAngles.push(random(TWO_PI));
+  }
+
+  initField();
+  buildAct1Legend();
+  buildReportSkeleton();
+  buildOrbitLegend();
+  startTimer();
+}
+
+function windowResized(){
+  resizeCanvas(windowWidth,windowHeight);
+  orbitScale=constrain(min((height*0.92)/880,(width*0.62)/900),0.55,1);
+}
+
+function initField(){
+  human=new Agent(width*0.44,height*0.5,'human');
+  animal=new Agent(width*0.56,height*0.5,'animal');
+  // grid
+  cells=[];
+  cellGap=min(width,height)/26;
+  let cols=ceil(width/cellGap),rows=ceil(height/cellGap);
+  for(let i=0;i<cols;i++)for(let j=0;j<rows;j++)cells.push(new Cell(i,j));
+}
+
+// ============================================================
+// AGENT
+// ============================================================
+class Agent{
+  constructor(x,y,kind){
+    this.x=x;this.y=y;this.px=x;this.py=y;this.vx=0;this.vy=0;this.kind=kind;
+    this.tx=random(1000);this.ty=random(1000);
+    this.intent='WANDER';this.anchor=null;this.leadAngle=0;this.ap=1;
+  }
+  update(other){
+    this.px=this.x;this.py=this.y;
+    this.tx+=0.003;this.ty+=0.003;
+    let ax=map(noise(this.tx),0,1,-2,2);
+    let ay=map(noise(this.ty),0,1,-2,2);
+    let dx=other.x-this.x,dy=other.y-this.y,d=mag(dx,dy)||1;
+    if(this.intent==='APPROACH'){
+      // care loop with hysteresis: close in to 130, retreat to 200, repeat
+      if(d>200)this.ap=1;
+      if(d<130)this.ap=-1;
+      if(this.ap===-1){ax-=dx/d*1.1;ay-=dy/d*1.1;}
+      else{ax+=dx/d*1.7;ay+=dy/d*1.7;}
+    }
+    else if(this.intent==='YIELD'){
+      if(d<260){ax-=dx/d*0.9;ay-=dy/d*0.9;}
+      else if(d>290){ax+=dx/d*0.9;ay+=dy/d*0.9;}
+    }
+    else if(this.intent==='FOLLOW'){
+      ax+=other.vx*1.2;ay+=other.vy*1.2;
+      if(d>160){ax+=dx/d*1.0;ay+=dy/d*1.0;}
+      else if(d<125){ax-=dx/d*0.7;ay-=dy/d*0.7;}
+    }
+    else if(this.intent==='CO'){
+      if(this.anchor){
+        let rx=this.anchor.x-this.x,ry=this.anchor.y-this.y,rm=mag(rx,ry)||1;
+        if(rm>16){ax+=rx/rm*1.2;ay+=ry/rm*1.2;}else{ax*=0.15;ay*=0.15;}
+      }
+    }
+    else if(this.intent==='LEAD'){
+      if(this.x<width*0.16||this.x>width*0.84)this.leadAngle=PI-this.leadAngle;
+      if(this.y<height*0.18||this.y>height*0.82)this.leadAngle=-this.leadAngle;
+      ax+=cos(this.leadAngle)*1.1;ay+=sin(this.leadAngle)*1.1;
+    }
+    else if(this.intent==='SEEK_CENTER'){
+      let cx=width/2-this.x,cy=height/2-this.y,cm=mag(cx,cy)||1;
+      ax+=cx/cm*2.4;ay+=cy/cm*2.4;
+    }
+    else if(this.intent==='REST'){
+      if(this.anchor){
+        let rx=this.anchor.x-this.x,ry=this.anchor.y-this.y,rm=mag(rx,ry)||1;
+        if(rm>14){ax+=rx/rm*0.9;ay+=ry/rm*0.9;}else{ax*=0.15;ay*=0.15;}
+      }else{ax*=0.2;ay*=0.2;}
+    }
+    // baseline curiosity: never stay separated for long
+    if(d>330){ax+=dx/d*0.4;ay+=dy/d*0.4;}
+    this.x+=ax;this.y+=ay;
+    // hard repulsion when too close
+    let ddx=other.x-this.x,ddy=other.y-this.y,dd=mag(ddx,ddy)||1;
+    if(dd<80){this.x-=ddx/dd*0.5;this.y-=ddy/dd*0.5;}
+    this.x=constrain(this.x,width*0.12,width*0.88);
+    this.y=constrain(this.y,height*0.14,height*0.86);
+    this.vx=this.x-this.px;this.vy=this.y-this.py;
+  }
+  display(alpha){
+    push();translate(this.x,this.y);
+    // halos
+    for(let r=10;r<60;r+=10){
+      noFill();stroke(80,alpha*0.5);strokeWeight(0.5);
+      circle(0,0,r+noise(r,frameCount*0.01)*4);
+    }
+    noFill();stroke(10,alpha);strokeWeight(2.5);
+    if(this.kind==='human'){
+      arc(0,0,180,180,frameCount*0.02,frameCount*0.02+PI/1.5);
+    }else{
+      drawingContext.setLineDash([8,12]);circle(0,0,180);drawingContext.setLineDash([]);
+    }
+    // core dot
+    noStroke();fill(20,alpha);circle(0,0,7);
+    pop();
+  }
+}
+
+// ============================================================
+// GRID (very faint texture)
+// ============================================================
+class Cell{
+  constructor(i,j){this.i=i;this.j=j;this.e=0;this.m=false;}
+  touch(x,y){
+    let cx=this.i*cellGap+cellGap/2,cy=this.j*cellGap+cellGap/2;
+    if(dist(x,y,cx,cy)<cellGap*1.3){this.e=min(this.e+0.4,1);this.m=true;}
+    else this.m=false;
+  }
+  step(){if(!this.m)this.e*=0.94;}
+  draw(){
+    let x=this.i*cellGap,y=this.j*cellGap;
+    // base texture dot
+    noStroke();fill(150,9);rect(x+cellGap/2,y+cellGap/2,1.5,1.5);
+    if(this.e>0.03){
+      noFill();stroke(120,this.e*34);strokeWeight(0.8);
+      if((this.i+this.j)%4!==0)rect(x+2,y+2,cellGap-4,cellGap-4);
+    }
+  }
+}
+
+// ============================================================
+// SIM STEP (physics + detection)
+// ============================================================
+// ============================================================
+// EPISODE DIRECTOR (choreographs complementary micro-encounters;
+// types are still classified from measured kinematics, never assigned)
+// ============================================================
+let epIndex=-1,epT=0,loggedEp=0,currentQuota=0,expectedType='CO_PRESENCE';
+function expectedFor(code){
+  if(code==='CO_REST')return'CO_PRESENCE';
+  if(code==='CARE_H'||code==='CARE_A')return'CARE';
+  if(code==='RESOURCE')return'RESOURCE';
+  if(code==='FOLLOW_A'||code==='FOLLOW_H')return'EMOTIONAL';
+  return'SPATIAL';
+}
+const EP_LEN=180;
+const EPISODES=[
+  ['CO_REST','A'],['CARE_H'],['RESOURCE'],['FOLLOW_A'],['YIELD_A'],
+  ['CO_REST','C'],['CARE_A'],['RESOURCE'],['FOLLOW_H'],['YIELD_A'],
+  ['CO_REST','B'],['CARE_H'],['RESOURCE'],['FOLLOW_A'],['CO_REST','C'],
+  ['CO_REST','A'],['CARE_A'],['RESOURCE']
+];
+function quotaFor(code){
+  if(code==='YIELD_A')return 2;
+  return 3;
+}
+function restAnchor(k){
+  if(k==='A')return{x:width*0.40,y:height*0.66};
+  if(k==='C')return{x:width*0.58,y:height*0.34};
+  return{x:width*0.46,y:height*0.30};
+}
+function gatherPoint(){
+  // shared point near current midpoint, pushed outside the resource-center zone
+  let gx=(human.x+animal.x)/2,gy=(human.y+animal.y)/2;
+  let dx=gx-width/2,dy=gy-height/2,d=mag(dx,dy);
+  if(d<175){
+    if(d<1){dx=1;dy=0.}
+    let s=175/d;
+    gx=width/2+dx*s;gy=height/2+dy*s;
+  }
+  gx=constrain(gx,width*0.16,width*0.84);
+  gy=constrain(gy,height*0.18,height*0.82);
+  return{x:gx,y:gy};
+}
+function applyEpisode(ep){
+  let ang=random(TWO_PI);
+  switch(ep[0]){
+    case 'CO_REST':
+      let g=gatherPoint();
+      human.intent='CO';animal.intent='CO';
+      human.anchor=g;animal.anchor=g;break;
+    case 'CARE_H':
+      human.ap=1;human.intent='APPROACH';human.anchor=null;
+      animal.intent='REST';animal.anchor={x:animal.x,y:animal.y};break;
+    case 'CARE_A':
+      animal.ap=1;animal.intent='APPROACH';animal.anchor=null;
+      human.intent='REST';human.anchor={x:human.x,y:human.y};break;
+    case 'RESOURCE':
+      human.intent='SEEK_CENTER';animal.intent='SEEK_CENTER';
+      human.anchor=null;animal.anchor=null;break;
+    case 'FOLLOW_A':
+      human.intent='FOLLOW';animal.intent='LEAD';
+      animal.leadAngle=ang;human.anchor=null;animal.anchor=null;break;
+    case 'FOLLOW_H':
+      animal.intent='FOLLOW';human.intent='LEAD';
+      human.leadAngle=ang;human.anchor=null;animal.anchor=null;break;
+    case 'YIELD_A':
+      animal.intent='YIELD';human.intent='REST';
+      human.anchor={x:human.x,y:human.y};animal.anchor=null;break;
+  }
+}
+function director(){
+  if(epT<=0){
+    epIndex=(epIndex+1)%EPISODES.length;
+    let ep=EPISODES[epIndex];
+    applyEpisode(ep);
+    currentQuota=quotaFor(ep[0]);
+    expectedType=expectedFor(ep[0]);
+    loggedEp=0;cooldown=0;
+    epT=EP_LEN;
+  }
+  epT--;
+}
+
+function simStep(){
+  director();
+  human.update(animal);animal.update(human);
+  for(let c of cells){c.touch(human.x,human.y);c.touch(animal.x,animal.y);c.step();}
+  detect();
+}
+
+function classify(d,dot,sp1,sp2,mx,my){
+  let nearCenter=dist(mx,my,width/2,height/2)<178;
+  if(nearCenter&&d<240)return'RESOURCE';
+  if(d<160&&dot>0.25)return'EMOTIONAL';
+  if(d<180&&(sp1>0.7||sp2>0.7))return'CARE';
+  if(d<250)return'CO_PRESENCE';
+  if(d<295)return'SPATIAL';
+  return'CO_PRESENCE';
+}
+
+function detect(){
+  let d=dist(human.x,human.y,animal.x,animal.y);
+  if(cooldown>0)cooldown--;
+
+  // decisive-avoidance tracking: count only a decisive close->far break
+  if(d<160)engagedClose=true;
+  else if(d>250&&engagedClose){avoidCount++;engagedClose=false;}
+
+  // each episode logs a fixed quota, and only when the real classifier
+  // confirms the behaviour this episode was designed to elicit
+  if(d<295&&cooldown===0&&loggedEp<currentQuota){
+    let sp1=mag(human.vx,human.vy),sp2=mag(animal.vx,animal.vy);
+    let dot=0;
+    if(sp1>0.15&&sp2>0.15)dot=(human.vx*animal.vx+human.vy*animal.vy)/(sp1*sp2);
+    let mx=(human.x+animal.x)/2+random(-25,25);
+    let my=(human.y+animal.y)/2+random(-25,25);
+    let type=classify(d,dot,sp1,sp2,mx,my);
+    if(type===expectedType){
+      nodes.push({
+        type:type,x:mx,y:my,sx:mx,sy:my,
+        time:currentTime,distV:d,size:random(14,26),
+        alpha:0,cx:mx,cy:my,slot:0,gx:-1,gy:-1
+      });
+      loggedEp++;
+      cooldown=floor(random(14,26));
+    }
+  }
+}
+
+// ============================================================
+// TIMER
+// ============================================================
+let timerHandle=null;
+function startTimer(){
+  timerHandle=setInterval(()=>{
+    if(phase===P.ENCOUNTER&&protocolRunning){
+      if(currentTime<MAX_T){currentTime++;updateTimeUI();}
+      else enterReplay(false);
+    }
+  },500);
+}
+
+function updateTimeUI(){
+  document.getElementById('time-display').innerText='T='+String(currentTime).padStart(3,'0');
+  document.getElementById('time-slider').value=currentTime;
+}
+
+function enterReplay(fast){
+  phase=P.REPLAY;
+  setStage(1);
+  document.getElementById('time-slider').disabled=false;
+  document.getElementById('skip-btn').classList.add('hidden');
+  document.getElementById('begin-analysis').classList.remove('hidden');
+  computeStats();
+}
+
+// ============================================================
+// DRAW DISPATCH
+// ============================================================
+function draw(){
+  background(255);
+
+  if(phase===P.ENCOUNTER){
+    if(protocolRunning)simStep();
+    drawField(1,false);
+  }
+  else if(phase===P.REPLAY){
+    drawField(1,true);
+  }
+  else if(phase===P.MORPH_A){
+    runMorphA();
+  }
+  else if(phase===P.ANALYSIS){
+    drawAnalysis();
+  }
+  else if(phase===P.MORPH_B){
+    runMorphB();
+  }
+  else if(phase===P.ORBIT){
+    drawOrbit(1);
+  }
+}
+
+// ---- Act 1 field ----
+function drawField(a,frozen){
+  // grid
+  for(let c of cells)c.draw();
+  // crosshair
+  push();
+  stroke(150,160*a);strokeWeight(1);
+  line(0,height/2,width,height/2);line(width/2,0,width/2,height);
+  stroke(0,255*a);strokeWeight(3);
+  line(width/2-25,height/2,width/2+25,height/2);line(width/2,height/2-25,width/2,height/2+25);
+  // dashed ellipse
+  stroke(150,170*a);strokeWeight(2);drawingContext.setLineDash([6,6]);noFill();
+  ellipse(width/2,height/2,width*0.85,height*0.8);
+  drawingContext.setLineDash([]);
+  pop();
+  // nodes
+  for(let n of nodes){
+    if(n.time>currentTime)continue;
+    if(!frozen)n.alpha=lerp(n.alpha,255,0.08);else n.alpha=255;
+    n.cx=n.x;n.cy=n.y;
+    let hov=hoverNode===n;
+    drawSymbolAt(n.type,n.x,n.y,n.size*(hov?1.25:1),n.alpha,0);
+    if(hov)drawHalo(n.x,n.y,n.size);
+  }
+  // agents
+  if(!frozen||true){human.display(255*a);animal.display(255*a);}
+  // hover
+  handleFieldHover();
+}
+
+function handleFieldHover(){
+  hoverNode=null;
+  if(phase===P.REPLAY){
+    for(let n of nodes){
+      if(n.time>currentTime)continue;
+      if(dist(mouseX,mouseY,n.x,n.y)<n.size){hoverNode=n;}
+    }
+  }
+  if(hoverNode){
+    showTip(hoverNode,{type:1});
+  }else tooltip.style.display='none';
+}
+
+// ============================================================
+// SYMBOL DRAWING
+// ============================================================
+function drawSymbolAt(type,x,y,s,a,rot){
+  push();translate(x,y);rotate(rot);
+  let c=COL[type];fill(c[0],c[1],c[2],a);noStroke();
+  if(type==='CO_PRESENCE')circle(0,0,s);
+  else if(type==='CARE'){rectMode(CENTER);rect(0,0,s,s*0.28);rect(0,0,s*0.28,s);}
+  else if(type==='RESOURCE')triangle(0,-s/1.4,-s/1.4,s/1.4,s/1.4,s/1.4);
+  else if(type==='EMOTIONAL'){rectMode(CENTER);rect(0,0,s*0.8,s*0.8);}
+  else if(type==='SPATIAL'){rectMode(CENTER);rect(0,0,s*1.4,s*0.4);}
+  pop();
+}
+function drawHalo(x,y,s){
+  push();noFill();stroke(0,120);strokeWeight(1);circle(x,y,s*2);pop();
+}
+
+// ============================================================
+// MORPH A : spatial -> rows
+// ============================================================
+function startMorphA(){
+  phase=P.MORPH_A;morphT0=millis();setStage(2);
+  showLayer('ui-act1',false);
+  // assign slots
+  for(let t=0;t<5;t++){
+    let grp=nodes.filter(n=>n.type===TYPES[t]).sort((a,b)=>a.time-b.time);
+    grp.forEach((n,i)=>{n.slot=grp.length>1?i/(grp.length-1):0.5;n.delay=0.05+t*0.03;});
+  }
+  currentTime=MAX_T;
+}
+function easeOut(k){return 1-pow(1-k,3);}
+
+function runMorphA(){
+  let k=constrain((millis()-morphT0)/MORPH_A_MS,0,1);
+  // fading field early
+  let fieldA=constrain(1-k/0.3,0,1);
+  if(fieldA>0){
+    for(let c of cells){c.draw();}
+    push();stroke(150,160*fieldA);strokeWeight(1);
+    line(0,height/2,width,height/2);line(width/2,0,width/2,height);
+    stroke(150,170*fieldA);strokeWeight(2);drawingContext.setLineDash([6,6]);noFill();
+    ellipse(width/2,height/2,width*0.85,height*0.8);drawingContext.setLineDash([]);pop();
+    human.display(255*fieldA);animal.display(255*fieldA);
+  }
+  // nodes fly
+  let rects=getRowRects();
+  for(let n of nodes){
+    let t=TYPES.indexOf(n.type);
+    let r=rects[t];
+    let tx=r.x+10+n.slot*(r.w-20),ty=r.y+r.h/2;
+    let lk=constrain((k-n.delay)/0.75,0,1);
+    let e=easeOut(lk);
+    n.cx=lerp(n.sx,tx,e);n.cy=lerp(n.sy,ty,e);
+    let a2=255;
+    drawSymbolAt(n.type,n.cx,n.cy,n.size,a2,0);
+  }
+  // analysis chrome fades in late
+  if(k>0.55){
+    showLayer('ui-analysis',true);
+    let ca=constrain((k-0.55)/0.4,0,1);
+    document.getElementById('ui-analysis').style.opacity=ca;
+    drawAnalysisAnchors(ca);
+  }
+  if(k>=1){
+    phase=P.ANALYSIS;setStage(2);
+    document.getElementById('ui-analysis').style.opacity=1;
+  }
+}
+
+// ============================================================
+// ANALYSIS
+// ============================================================
+function drawAnalysis(){
+  drawAnalysisAnchors(1);
+  let rects=getRowRects();
+  hoverNode=null;hoverCell=-1;
+
+  // compression anchor info
+  let ca=document.getElementById('compression-anchor').getBoundingClientRect();
+  let cellW=ca.width/COMP_COLS,cellH=ca.height/COMP_ROWS;
+
+  // determine hovered compression cell
+  if(mouseX>=ca.left&&mouseX<=ca.right&&mouseY>=ca.top&&mouseY<=ca.bottom){
+    let gx=floor((mouseX-ca.left)/cellW),gy=floor((mouseY-ca.top)/cellH);
+    hoverCell=gy*COMP_COLS+gx;
+  }
+
+  for(let t=0;t<5;t++){
+    let grp=nodes.filter(n=>n.type===TYPES[t]).sort((a,b)=>a.time-b.time);
+    let dim=focusRow>=0&&focusRow!==t;
+    let r=rects[t];
+    grp.forEach((n,i)=>{
+      let tx=r.x+10+n.slot*(r.w-20),ty=r.y+r.h/2;
+      n.cx=tx;n.cy=ty;
+      let hov=false;
+      // direct hover
+      if(dist(mouseX,mouseY,tx,ty)<n.size&&!dim)hov=true;
+      // linked from compression
+      if(hoverCell>=0&&n.gx+n.gy*COMP_COLS===hoverCell)hov=true;
+      if(hov)hoverNode=n;
+      let alpha=dim?40:255;
+      drawSymbolAt(n.type,tx,ty,n.size*(hov?1.3:1),alpha,0);
+      if(hov)drawHalo(tx,ty,n.size);
+    });
+  }
+
+  // compression symbols
+  drawCompression(cellW,cellH,ca);
+
+  if(hoverNode){
+    showTip(hoverNode,{type:hoverNode.gx>=0?2:2});
+  }else tooltip.style.display='none';
+}
+
+let focusRow=-1;
+function focusRowFn(t){
+  focusRow=focusRow===t?-1:t;
+  document.querySelectorAll('.row-focus').forEach((el,i)=>{
+    el.classList.toggle('dimmed',focusRow>=0&&i!==focusRow);
+  });
+}
+
+function drawAnalysisAnchors(a){
+  // party sketches
+  let h=document.getElementById('party-human-anchor').getBoundingClientRect();
+  let an=document.getElementById('party-animal-anchor').getBoundingClientRect();
+  drawPartyHuman(h.x+h.width/2,h.y+h.height/2,a);
+  drawPartyAnimal(an.x+an.width/2,an.y+an.height/2,a);
+}
+
+function drawPartyHuman(cx,cy,a){
+  push();translate(cx,cy);
+  let tt=frameCount*0.01;
+  for(let r=8;r<45;r+=6){
+    noFill();stroke(120,150*a);strokeWeight(0.5);beginShape();
+    for(let aa=0;aa<TWO_PI;aa+=0.15){
+      let n=map(noise(cos(aa)+1,sin(aa)+1,r+tt),0,1,-6,6);
+      vertex(cos(aa)*(r+n),sin(aa)*(r+n));
+    }
+    endShape(CLOSE);
+  }
+  stroke(150,100*a);strokeWeight(0.5);
+  for(let i=0;i<24;i++){
+    let aa=i/24*TWO_PI+tt*0.1,len=40+noise(i,tt)*20;
+    line(cos(aa)*20,sin(aa)*20,cos(aa)*len,sin(aa)*len);
+  }
+  noFill();stroke(0,255*a);strokeWeight(2);arc(0,0,110,110,PI*0.3,PI*0.9);
+  pop();
+}
+function drawPartyAnimal(cx,cy,a){
+  push();translate(cx,cy);
+  let tt=frameCount*0.01;
+  for(let r=8;r<45;r+=6){noFill();stroke(120,150*a);strokeWeight(0.5);circle(0,0,r*2);}
+  stroke(100,150,220,120*a);strokeWeight(1);drawingContext.setLineDash([3,4]);circle(0,0,70);drawingContext.setLineDash([]);
+  stroke(150,100*a);strokeWeight(0.5);
+  for(let i=0;i<24;i++){
+    let aa=i/24*TWO_PI-tt*0.1;
+    line(cos(aa)*15,sin(aa)*15,cos(aa)*45,sin(aa)*45);
+  }
+  noFill();stroke(0,255*a);strokeWeight(2);arc(0,0,110,110,-PI*0.4,PI*0.3);
+  pop();
+}
+
+function drawCompression(cellW,cellH,ca){
+  // grid lines
+  push();
+  stroke(225);strokeWeight(0.5);noFill();
+  for(let i=0;i<=COMP_COLS;i++)line(ca.left+i*cellW,ca.top,ca.left+i*cellW,ca.bottom);
+  for(let j=0;j<=COMP_ROWS;j++)line(ca.left,ca.top+j*cellH,ca.right,ca.top+j*cellH);
+  pop();
+  for(let n of nodes){
+    if(n.gx<0)continue;
+    let x=ca.left+(n.gx+0.5)*cellW,y=ca.top+(n.gy+0.5)*cellH;
+    let dim=focusRow>=0&&TYPES.indexOf(n.type)!==focusRow;
+    let idx=n.gy*COMP_COLS+n.gx;
+    let hov=hoverCell===idx||hoverNode===n;
+    let s=min(cellW,cellH)*0.55*(hov?1.5:1);
+    drawSymbolAt(n.type,x,y,s,dim?40:255,0);
+    if(hov){push();noFill();stroke(0);strokeWeight(1);circle(x,y,s*1.6);pop();}
+  }
+}
+
+// ============================================================
+// MORPH B : rows -> rings
+// ============================================================
+function startMorphB(){
+  phase=P.MORPH_B;morphT0=millis();setStage(3);
+  showLayer('ui-analysis',false);
+}
+function easeInOut(k){return k<0.5?4*k*k*k:1-pow(-2*k+2,3)/2;}
+
+function ringCenter(){return{x:width*0.40,y:height/2};}
+
+function runMorphB(){
+  let k=constrain((millis()-morphT0)/MORPH_B_MS,0,1);
+  let rects=getRowRects();
+  let C=ringCenter();
+
+  // fade analysis anchors early
+  let aa=constrain(1-k/0.3,0,1);
+  if(aa>0)drawAnalysisAnchors(aa);
+
+  for(let n of nodes){
+    let t=TYPES.indexOf(n.type);
+    let r=rects[t];
+    let lx=r.x+10+n.slot*(r.w-20),ly=r.y+r.h/2;
+    let prm=stats.per[TYPES[t]];
+    let span=map(prm.duration,0,1,PI*0.3,TWO_PI*0.9);
+    let ang=ringStartAngles[t]+n.slot*span;
+    let R=RING_BASE[t]*orbitScale;
+    let tx=C.x+cos(ang)*R,ty=C.y+sin(ang)*R;
+    let lk=constrain((k-0.05-t*0.03)/0.8,0,1);
+    let e=easeInOut(lk);
+    n.cx=lerp(lx,tx,e);n.cy=lerp(ly,ty,e);
+    n.ringAng=ang;
+    drawSymbolAt(n.type,n.cx,n.cy,n.size,255,ang+PI/2);
+  }
+  // arcs fade in late
+  if(k>0.55)drawOrbit(constrain((k-0.55)/0.4,0,1),true);
+  // orbit chrome
+  if(k>0.7){
+    showLayer('ui-orbit',true);
+    document.getElementById('ui-orbit').style.opacity=constrain((k-0.7)/0.3,0,1);
+  }
+  if(k>=1){
+    phase=P.ORBIT;setStage(4);
+    document.getElementById('ui-orbit').style.opacity=1;
+    // no auto seal: the user clicks SEAL ARCHIVE when ready
+  }
+}
+
+// ============================================================
+// ORBIT
+// ============================================================
+function drawOrbit(a,suppressChrome){
+  let C=ringCenter();
+  // arcs
+  for(let t=0;t<5;t++){
+    if(!visibleLayers[t])continue;
+    let prm=stats.per[TYPES[t]];
+    let R=RING_BASE[t]*orbitScale;
+    let span=map(prm.duration,0,1,PI*0.3,TWO_PI*0.9);
+    let thickness=map(prm.intensity,0,1,2,26);
+    let layerA=255;
+    if(focusLayer>=0&&focusLayer!==t)layerA=45;
+    let c=COL[TYPES[t]];
+    // segments with conflict gaps
+    let numGaps=floor(map(prm.conflict,0,1,0,11));
+    let gapRatio=map(prm.conflict,0,1,0,0.45);
+    if(prm.conflict>0.7)drawingContext.setLineDash([2,8]);
+    else if(prm.conflict>0.3)drawingContext.setLineDash([14,9]);
+    else drawingContext.setLineDash([]);
+    stroke(c[0],c[1],c[2],120/255*layerA*a);
+    strokeWeight(thickness);noFill();
+    let segs=[];
+    if(numGaps===0)segs.push([0,span]);
+    else{
+      let usable=span*(1-gapRatio),ss=usable/(numGaps+1),gs=(span*gapRatio)/numGaps;
+      let cur=0;
+      for(let j=0;j<=numGaps;j++){segs.push([cur,cur+ss]);cur+=ss+gs;}
+    }
+    for(let s of segs)arc(C.x,C.y,R*2,R*2,ringStartAngles[t]+s[0],ringStartAngles[t]+s[1]);
+    drawingContext.setLineDash([]);
+  }
+  // symbols
+  hoverNode=null;
+  for(let n of nodes){
+    let t=TYPES.indexOf(n.type);
+    if(!visibleLayers[t])continue;
+    let R=RING_BASE[t]*orbitScale;
+    let x=C.x+cos(n.ringAng)*R,y=C.y+sin(n.ringAng)*R;
+    n.cx=x;n.cy=y;
+    let layerA=(focusLayer>=0&&focusLayer!==t)?45:255;
+    let hov=dist(mouseX,mouseY,x,y)<n.size+4;
+    if(hov)hoverNode=n;
+    drawSymbolAt(n.type,x,y,n.size*(hov?1.3:1),layerA,n.ringAng+PI/2);
+    if(hov)drawHalo(x,y,n.size);
+  }
+  // center ID
+  push();translate(C.x,C.y);
+  noStroke();fill(0,255*a);textAlign(CENTER,CENTER);textSize(15);
+  text("RELATIONAL ID",0,-14);textSize(22);text("R-08321",0,10);
+  pop();
+  if(hoverNode){showTip(hoverNode,{type:3});}
+  else if(!suppressChrome)tooltip.style.display='none';
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function computeStats(){
+  let per={};
+  for(let t of TYPES){
+    let grp=nodes.filter(n=>n.type===t);
+    let avgDist=grp.length?grp.reduce((s,n)=>s+n.distV,0)/grp.length:200;
+    per[t]={count:grp.length,avgDist:avgDist};
+  }
+  let allD=nodes.map(n=>n.distV).sort((a,b)=>a-b);
+  let median=allD.length?allD[floor(allD.length/2)]:0;
+  let cSpat=per.SPATIAL.count;
+  let globalConflict=constrain(avoidCount/(4+nodes.length*0.25)+(nodes.length?cSpat/nodes.length:0)*0.3+(median>230?0.15:0),0,1);
+  let maxCount=Math.max(...TYPES.map(t=>per[t].count),1);
+  for(let t of TYPES){
+    let p=per[t];
+    p.score=+(0.3+0.62*Math.pow(p.count/maxCount,0.75)).toFixed(2);
+    p.duration=constrain(0.25+p.count/30,0.2,0.95);
+    p.intensity=constrain(map(p.avgDist,270,80,0.15,1),0.1,1);
+    p.conflict=constrain(globalConflict*(t==='SPATIAL'?1.4:0.9)+(t==='SPATIAL'?0.15:0),0,1);
+    p.density=p.count;
+  }
+  // non-human inferred consent (data closed-loop)
+  let aff=per.CO_PRESENCE.count+per.CARE.count+per.EMOTIONAL.count+0.5*per.RESOURCE.count;
+  let distW=per.SPATIAL.count+avoidCount*2;
+  let nhConsent=constrain(aff/(aff+distW),0,1);
+  let gatePass=nhConsent>=0.65&&globalConflict<=0.6&&nodes.length>=24;
+  consentResult={nh:nhConsent,conflict:globalConflict,aff:aff,dist:distW,pass:gatePass};
+  stats={per:per,total:nodes.length,median:median,
+    sync:per.EMOTIONAL?per.EMOTIONAL.score:0,
+    conflictI:+globalConflict.toFixed(2),consent:+nhConsent.toFixed(2)};
+
+  // assign compression grid cells (deterministic, collision-free)
+  let used={};
+  for(let n of nodes){
+    let gx,gy,tries=0;
+    do{
+      gx=floor(random(COMP_COLS));gy=floor(random(COMP_ROWS));tries++;
+    }while(used[gx+'_'+gy]&&tries<60);
+    used[gx+'_'+gy]=true;n.gx=gx;n.gy=gy;
+  }
+  populateReportData();
+  populateAdvanced();
+}
+
+// ============================================================
+// TIP
+// ============================================================
+function showTip(n,ctx){
+  tooltip.style.display='block';
+  tooltip.style.left=min(mouseX+15,width-200)+'px';
+  tooltip.style.top=min(mouseY+15,height-130)+'px';
+  let t=TYPES.indexOf(n.type);
+  if(ctx.type===3&&stats){
+    let p=stats.per[n.type];
+    tooltip.innerHTML=`<div class="tt-type">${ROW_LABEL[t]}</div>
+      <div>INTENSITY: ${p.intensity.toFixed(2)}</div>
+      <div>DENSITY: ${p.count}</div>
+      <div>DURATION: ${p.duration.toFixed(2)}</div>`;
+  }else{
+    tooltip.innerHTML=`<div class="tt-type">${ROW_LABEL[t]}</div>
+      <div>TIME: T=${n.time}</div>
+      <div>DISTANCE: ${(n.distV/100).toFixed(2)} m</div>
+      <div class="normal-case tracking-normal mt-1" style="font-style:italic;color:#555">"${DESC[n.type]}"</div>`;
+  }
+}
+
+// ============================================================
+// UI BUILDERS
+// ============================================================
+function showLayer(id,show){
+  let el=document.getElementById(id);
+  el.classList.toggle('show',show);
+  // clear inline opacity when hiding so the .layer CSS transition can fade it out
+  el.style.opacity=show?1:'';
+}
+function setStage(s){
+  document.querySelectorAll('.stage-seg').forEach((el,i)=>el.classList.toggle('active',i===s));
+}
+
+function buildAct1Legend(){
+  let box=document.getElementById('legend-container');
+  box.innerHTML='';
+  TYPES.forEach((t,i)=>{
+    let d=document.createElement('div');
+    d.className='legend-item flex items-center';
+    let icon='';
+    if(t==='CO_PRESENCE')icon=`<span class="inline-block w-3.5 h-3.5 rounded-full bg-[rgb(${COL[t].join(',')})] mr-4"></span>`;
+    else if(t==='CARE')icon=`<div class="relative w-3.5 h-3.5 mr-4"><div class="absolute top-1/2 left-0 w-3.5 h-[3px] bg-[rgb(${COL[t].join(',')})] -translate-y-1/2"></div><div class="absolute left-1/2 top-0 w-[3px] h-3.5 bg-[rgb(${COL[t].join(',')})] -translate-x-1/2"></div></div>`;
+    else if(t==='RESOURCE')icon=`<div class="w-0 h-0 border-l-[7px] border-r-[7px] border-b-[12px] border-l-transparent border-r-transparent border-b-[rgb(${COL[t].join(',')})] mr-4"></div>`;
+    else if(t==='EMOTIONAL')icon=`<span class="inline-block w-3.5 h-3.5 bg-[rgb(${COL[t].join(',')})] mr-4"></span>`;
+    else icon=`<span class="inline-block w-6 h-2 bg-[rgb(${COL[t].join(',')})] mr-3"></span>`;
+    d.innerHTML=icon+ROW_LABEL[i];
+    d.onclick=()=>d.classList.toggle('disabled');
+    box.appendChild(d);
+  });
+}
+
+function buildReportSkeleton(){
+  let rc=document.getElementById('rows-container');
+  rc.innerHTML='';
+  TYPES.forEach((t,i)=>{
+    let row=document.createElement('div');
+    row.className='row-focus flex items-center gap-4';
+    let icon='';
+    if(t==='CO_PRESENCE')icon=`<span class="inline-block w-6 h-6 rounded-full bg-[rgb(${COL[t].join(',')})]"></span>`;
+    else if(t==='CARE')icon=`<span class="relative inline-block w-5 h-5"><span class="absolute top-1/2 left-0 w-5 h-[3px] bg-[rgb(${COL[t].join(',')})] -translate-y-1/2"></span><span class="absolute left-1/2 top-0 w-[3px] h-5 bg-[rgb(${COL[t].join(',')})] -translate-x-1/2"></span></span>`;
+    else if(t==='RESOURCE')icon=`<span class="inline-block w-0 h-0 border-l-[8px] border-r-[8px] border-b-[14px] border-l-transparent border-r-transparent border-b-[rgb(${COL[t].join(',')})]"></span>`;
+    else if(t==='EMOTIONAL')icon=`<span class="inline-block w-5 h-5 bg-[rgb(${COL[t].join(',')})]"></span>`;
+    else icon=`<span class="inline-block w-8 h-3 bg-[rgb(${COL[t].join(',')})]"></span>`;
+    row.innerHTML=`
+      <div class="flex items-center gap-3 w-[210px] cursor-pointer" data-rlabel="${i}">${icon}<span>${ROW_LABEL[i]}</span></div>
+      <div class="row-container flex-1" id="row-${t}"></div>
+      <span class="w-12 text-right font-bold" id="score-${t}">--</span>`;
+    rc.appendChild(row);
+  });
+  rc.querySelectorAll('[data-rlabel]').forEach(el=>{
+    el.onclick=()=>focusRowFn(parseInt(el.dataset.rlabel));
+  });
+}
+
+function getRowRects(){
+  return TYPES.map(t=>document.getElementById('row-'+t).getBoundingClientRect()).map(r=>({x:r.left,y:r.top,w:r.width,h:r.height}));
+}
+
+function populateReportData(){
+  TYPES.forEach(t=>{document.getElementById('score-'+t).innerText=stats.per[t].score.toFixed(2);});
+  let rd=document.getElementById('relationship-data');
+  let hh=floor(stats.total*0.96/60);
+  rd.innerHTML=`
+    <div class="flex justify-between"><span>Observation Duration</span><span>0${hh}:17:42</span></div>
+    <div class="flex justify-between"><span>Total Interactions</span><span>${stats.total}</span></div>
+    <div class="flex justify-between"><span>Primary Location</span><span>Living Room</span></div>
+    <div class="flex justify-between"><span>Distance Median</span><span>${(stats.median/100).toFixed(2)} m</span></div>
+    <div class="flex justify-between"><span>Sync Index</span><span>${stats.sync.toFixed(2)}</span></div>
+    <div class="flex justify-between"><span>Conflict Index</span><span>${stats.conflictI}</span></div>`;
+}
+
+function orbitIcon(t){
+  const c=`rgb(${COL[t].join(',')})`;
+  if(t==='CO_PRESENCE')return `<span class="block w-3 h-3 rounded-full" style="background:${c}"></span>`;
+  if(t==='CARE')return `<span class="relative block w-3 h-3"><span class="absolute left-0 top-1/2 w-3 h-[2px] -translate-y-1/2" style="background:${c}"></span><span class="absolute left-1/2 top-0 h-3 w-[2px] -translate-x-1/2" style="background:${c}"></span></span>`;
+  if(t==='RESOURCE')return `<span class="block w-0 h-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent" style="border-bottom-color:${c}"></span>`;
+  if(t==='EMOTIONAL')return `<span class="block w-3 h-3" style="background:${c}"></span>`;
+  return `<span class="block w-6 h-2" style="background:${c}"></span>`;
+}
+function buildOrbitLegend(){
+  let box=document.getElementById('orbit-legend');
+  box.innerHTML='<div class="font-bold border-b border-black pb-1 mb-2 w-44">[ ARCHIVE LEGEND ]</div>';
+  TYPES.forEach((t,i)=>{
+    let d=document.createElement('div');
+    d.className='flex items-center cursor-pointer';
+    d.id='ol-'+i;
+    d.innerHTML=`<span class="w-5 h-5 mr-3 flex items-center justify-center">${orbitIcon(t)}</span><span>${ROW_LABEL[i]}</span>`;
+    d.onclick=()=>{
+      visibleLayers[i]=!visibleLayers[i];
+      d.style.opacity=visibleLayers[i]?1:0.2;
+    };
+    box.appendChild(d);
+  });
+}
+
+function populateAdvanced(){
+  let c=document.getElementById('adv-content');
+  c.innerHTML='';
+  TYPES.forEach((t,i)=>{
+    let p=stats.per[t];
+    let d=document.createElement('div');
+    d.innerHTML=`<div class="font-bold ro-line pb-1 mb-1" style="color:rgb(${COL[t].join(',')})">${ROW_LABEL[i]}</div>
+      <div class="flex justify-between ro-line py-1"><span>DURATION</span><span>${p.duration.toFixed(2)}</span></div>
+      <div class="flex justify-between ro-line py-1"><span>INTENSITY</span><span>${p.intensity.toFixed(2)}</span></div>
+      <div class="flex justify-between ro-line py-1"><span>CONFLICT</span><span>${p.conflict.toFixed(2)}</span></div>
+      <div class="flex justify-between py-1"><span>DENSITY</span><span>${p.count}</span></div>`;
+    c.appendChild(d);
+  });
+}
+
+// ============================================================
+// SEAL / RESTART / JUMP
+// ============================================================
+function showSeal(){document.getElementById('seal-overlay').style.display='flex';}
+
+function fullRestart(){
+  phase=P.ENCOUNTER;setStage(0);
+  nodes=[];stats=null;currentTime=0;cooldown=0;avoidCount=0;prevD=999;prevClose=false;
+  visibleLayers=[true,true,true,true,true];focusLayer=-1;focusRow=-1;sealed=false;
+  engagedClose=false;protocolRunning=false;humanDeclared=false;consentResult=null;
+  document.getElementById('seal-overlay').style.display='none';
+  removeRegistrationSketches();
+  document.getElementById('ui-orbit').style.opacity=0;
+  document.getElementById('ui-analysis').style.opacity=0;
+  document.getElementById('adv-panel').classList.remove('open');
+  showLayer('ui-orbit',false);showLayer('ui-analysis',false);showLayer('ui-act1',true);
+  document.getElementById('time-slider').disabled=true;
+  document.getElementById('time-slider').value=0;
+  document.getElementById('skip-btn').classList.remove('hidden');
+  document.getElementById('begin-analysis').classList.add('hidden');
+  updateTimeUI();
+  initField();
+  // land on arrival calibration (title is for first load / hub)
+  showScene('scene-arrival');runArrival();
+}
+
+// ============================================================
+// NARRATIVE SCENES
+// ============================================================
+const SCENE_IDS=['scene-title','scene-preamble','scene-transition','scene-arrival','scene-consent','scene-review','scene-registration','scene-certificate','scene-hub','scene-about'];
+function showScene(id){
+  SCENE_IDS.forEach(s=>document.getElementById(s).classList.toggle('show',s===id));
+  let sc=document.getElementById(id);if(sc)sc.scrollTop=0;
+}
+function hideScenes(){SCENE_IDS.forEach(s=>document.getElementById(s).classList.remove('show'));}
+
+// title
+document.getElementById('btn-begin').onclick=()=>showScene('scene-preamble');
+document.getElementById('title-browse').onclick=()=>window.location.href='collective-animal-archive.html';
+// preamble
+document.getElementById('btn-preamble-ok').onclick=()=>{
+  showScene('scene-transition');
+  setTimeout(()=>document.getElementById('stamp-abolished').classList.add('in'),500);
+};
+// transition
+document.getElementById('btn-transition-ok').onclick=()=>{
+  showScene('scene-arrival');runArrival();
+};
+
+// arrival calibration (file 2) — panels/sliders/entity graphs are built and
+// driven by the arrival instance sketch below; runArrival just opens + resets it
+function runArrival(){
+  showScene('scene-arrival');
+  if(typeof window.__arrivalReset==='function')window.__arrivalReset();
+}
+function enterEncounter(){
+  hideScenes();protocolRunning=true;showLayer('ui-act1',true);
+}
+
+// consent
+function goConsent(){
+  humanDeclared=false;
+  document.getElementById('btn-human-declare').disabled=false;
+  document.getElementById('human-declared-state').innerText='— NOT YET DECLARED —';
+  document.getElementById('btn-consent-next').disabled=true;
+  let r=consentResult;
+  let label=r.nh>=0.65?'● ASSENT 同意':(r.nh>=0.5?'● AMBIGUOUS 模糊':'● WITHHELD 拒绝');
+  let col=r.nh>=0.65?'#000':'#d00000';
+  document.getElementById('nh-consent-body').innerHTML=`
+    <div class="kv"><span>AFFILIATIVE EVENTS</span><span>${Math.round(r.aff)}</span></div>
+    <div class="kv"><span>WITHDRAWAL WEIGHT</span><span>${r.dist}</span></div>
+    <div class="kv"><span>CONFLICT INDEX</span><span>${r.conflict.toFixed(2)}</span></div>
+    <div class="kv" style="color:${col}"><span>INFERRED CONSENT</span><span>${label} · ${r.nh.toFixed(2)}</span></div>`;
+  showScene('scene-consent');
+}
+document.getElementById('btn-human-declare').onclick=()=>{
+  humanDeclared=true;
+  document.getElementById('btn-human-declare').disabled=true;
+  document.getElementById('human-declared-state').innerHTML='<span class="font-bold">● CONSENT DECLARED 已声明</span>';
+  checkConsent();
+};
+function checkConsent(){
+  if(!humanDeclared)return;
+  let btn=document.getElementById('btn-consent-next');btn.disabled=false;
+  btn.innerText=consentResult.pass?'PROCEED TO REGISTRATION 前往登记 →':'VIEW MANUAL REVIEW 进入人工复核 →';
+}
+document.getElementById('btn-consent-next').onclick=()=>{
+  if(consentResult.pass)startRegistrationScene();else startReview();
+};
+
+// review / failure
+function startReview(){
+  let r=consentResult,reasons=[];
+  if(nodes.length<24)reasons.push('INSUFFICIENT DATA — fewer than 24 recorded interactions ('+nodes.length+').');
+  if(r.nh<0.65)reasons.push('NON-HUMAN CONSENT NOT ESTABLISHED — inferred '+r.nh.toFixed(2)+' (threshold 0.65).');
+  if(r.conflict>0.6)reasons.push('CONFLICT INDEX TOO HIGH — '+r.conflict.toFixed(2)+' (limit 0.60).');
+  if(reasons.length===0)reasons.push('UNCLASSIFIABLE ENCOUNTER — the relation could not be resolved.');
+  document.getElementById('review-reasons').innerHTML=reasons.map(x=>'<div>✕ '+x+'</div>').join('');
+  showScene('scene-review');
+}
+document.getElementById('btn-review-restart').onclick=fullRestart;
+document.getElementById('btn-review-hub').onclick=()=>showScene('scene-hub');
+
+// registration
+let regSketchInstances=[];
+function removeRegistrationSketches(){
+  regSketchInstances.forEach(s=>{if(s&&s.remove)s.remove();});
+  regSketchInstances=[];
+}
+function startRegistrationScene(){
+  showScene('scene-registration');
+  initRegistrationSketches();
+  decodeScrambles();
+  resetPhotoBoxes();
+  regAuthorized=false;pressProgress=0;
+  document.getElementById('authorize-fill').style.width='0%';
+  document.getElementById('stamp-approved').classList.remove('in');
+  document.getElementById('reg-status').innerText='PENDING';
+  document.getElementById('reg-status').classList.remove('accent-text');
+  document.getElementById('btn-issue').disabled=true;
+  document.getElementById('btn-authorize').disabled=false;
+  document.querySelector('#btn-authorize span').innerText='HOLD TO AUTHORIZE';
+}
+function initRegistrationSketches(){
+  removeRegistrationSketches();
+  regSketchInstances.push(new p5(regGenomeSketch,document.getElementById('reg-genome')));
+  regSketchInstances.push(new p5(regHumanSigSketch,document.getElementById('reg-human-sig')));
+  regSketchInstances.push(new p5(regAnimalSigSketch,document.getElementById('reg-animal-sig')));
+}
+const regGenomeSketch=(p)=>{
+  p.setup=()=>p.createCanvas(280,280);
+  p.draw=()=>{
+    p.background(255);p.translate(140,140);
+    p.stroke(200);p.strokeWeight(1);p.drawingContext.setLineDash([4,4]);
+    p.line(-120,0,120,0);p.line(0,-120,0,120);
+    for(let r=40;r<=120;r+=20){p.noFill();p.circle(0,0,r*2);}
+    p.drawingContext.setLineDash([]);
+    p.rotate(p.frameCount*0.002);
+    p.strokeCap(p.SQUARE);
+    p.stroke('#70d6ff');p.strokeWeight(8);p.drawingContext.setLineDash([15,10]);p.arc(0,0,80,80,0,p.PI);
+    p.stroke('#d00000');p.strokeWeight(6);p.drawingContext.setLineDash([]);p.arc(0,0,120,120,p.PI*0.8,p.PI*1.4);
+    regDrawMarkers(p,60,p.PI*0.8,p.PI*1.4,'cross','#d00000');
+    p.stroke('#560bad');p.strokeWeight(4);p.drawingContext.setLineDash([20,15]);p.arc(0,0,160,160,p.PI*0.2,p.PI*1.8);
+    regDrawMarkers(p,80,p.PI*0.2,p.PI*1.8,'triangle','#560bad');
+    p.stroke('#ff70a6');p.strokeWeight(6);p.drawingContext.setLineDash([30,20]);p.arc(0,0,200,200,-p.PI*0.3,p.PI*0.7);
+    p.stroke('#d4d700');p.strokeWeight(3);p.drawingContext.setLineDash([10,5]);p.arc(0,0,240,240,p.PI,p.PI*2.5);
+    p.drawingContext.setLineDash([]);
+  };
+};
+function regDrawMarkers(p,radius,startA,endA,type,col){
+  p.push();p.noStroke();p.fill(col);p.drawingContext.setLineDash([]);
+  for(let a=startA+0.2;a<endA-0.2;a+=0.4){
+    let x=p.cos(a)*radius,y=p.sin(a)*radius;
+    p.push();p.translate(x,y);p.rotate(a+p.PI/2);
+    if(type==='cross'){p.rectMode(p.CENTER);p.rect(0,0,8,2);p.rect(0,0,2,8);}
+    if(type==='triangle')p.triangle(0,-4,3,3,-3,3);
+    p.pop();
+  }
+  p.pop();
+}
+const regHumanSigSketch=(p)=>{
+  p.setup=()=>p.createCanvas(80,80);
+  p.draw=()=>{
+    p.background(255);p.translate(40,40);p.noFill();p.stroke(50);p.strokeWeight(0.5);
+    for(let r=5;r<35;r+=4){
+      p.beginShape();
+      for(let a=0;a<p.TWO_PI;a+=0.2){
+        let n=p.map(p.noise(p.cos(a)*2,p.sin(a)*2,p.frameCount*0.01+r),0,1,-3,3);
+        p.vertex(p.cos(a)*(r+n),p.sin(a)*(r+n));
+      }
+      p.endShape(p.CLOSE);
+    }
+    p.stroke(0);p.strokeWeight(1);p.arc(0,0,70,70,0,p.PI*1.5);
+  };
+};
+const regAnimalSigSketch=(p)=>{
+  p.setup=()=>p.createCanvas(80,80);
+  p.draw=()=>{
+    p.background(255);p.translate(40,40);p.noFill();p.stroke(50);p.strokeWeight(0.5);
+    for(let r=5;r<35;r+=4)p.circle(0,0,r*2);
+    p.stroke(0);p.strokeWeight(1);p.drawingContext.setLineDash([2,4]);p.circle(0,0,60);p.drawingContext.setLineDash([]);
+    for(let i=0;i<30;i++){
+      let a=(i/30)*p.TWO_PI+p.frameCount*0.01;
+      let len=15+p.noise(i,p.frameCount*0.02)*15;
+      p.line(p.cos(a)*15,p.sin(a)*15,p.cos(a)*len,p.sin(a)*len);
+    }
+  };
+};
+function decodeScrambles(){
+  const charset='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  document.querySelectorAll('.scramble').forEach(el=>{
+    let final=el.getAttribute('data-val'),it=0,max=16;
+    let iv=setInterval(()=>{
+      let cur='';
+      for(let i=0;i<final.length;i++){
+        if(final[i]===' '){cur+=' ';continue;}
+        if(i<(it/max)*final.length)cur+=final[i];
+        else cur+=charset[Math.floor(Math.random()*charset.length)];
+      }
+      el.innerText=cur;it++;
+      if(it>max){clearInterval(iv);el.innerText=final;}
+    },45);
+  });
+}
+// real camera capture (getUserMedia) + halftone, from file 6 (kept monochrome)
+const photoState={};
+function stopCamStream(s){if(s)s.getTracks().forEach(t=>t.stop());}
+function halftone(ctx,w,h){
+  const src=ctx.getImageData(0,0,w,h).data;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+  const step=6;ctx.fillStyle='#000';
+  for(let y=0;y<h;y+=step)for(let x=0;x<w;x+=step){
+    let br=0,n=0;
+    for(let yy=y;yy<Math.min(y+step,h);yy++)for(let xx=x;xx<Math.min(x+step,w);xx++){const i=(yy*w+xx)*4;br+=(src[i]+src[i+1]+src[i+2])/3;n++;}
+    br/=n;const rad=(1-br/255)*step*0.62;
+    if(rad>0.4){ctx.beginPath();ctx.arc(x+step/2,y+step/2,rad,0,Math.PI*2);ctx.fill();}
+  }
+}
+function setupPhotoBox(id){
+  const box=document.getElementById(id);
+  const video=box.querySelector('.cam-video'),canvas=box.querySelector('.cam-canvas'),hint=box.querySelector('.cam-hint');
+  const st={stream:null,mode:'idle'};photoState[id]=st;
+  box.onclick=async()=>{
+    if(st.mode==='done')return;
+    if(st.mode==='live'){
+      const ctx=canvas.getContext('2d'),vw=video.videoWidth,vh=video.videoHeight;
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,120,140);
+      const target=120/140,srcRatio=vw/vh;let sx=0,sy=0,sw=vw,sh=vh;
+      if(srcRatio>target){sw=vh*target;sx=(vw-sw)/2;}else{sh=vw/target;sy=(vh-sh)/2;}
+      ctx.drawImage(video,sx,sy,sw,sh,0,0,120,140);
+      halftone(ctx,120,140);
+      stopCamStream(st.stream);st.stream=null;
+      box.classList.remove('live');box.classList.add('done');st.mode='done';
+      return;
+    }
+    try{
+      st.stream=await navigator.mediaDevices.getUserMedia({video:{width:120,height:140},audio:false});
+      video.srcObject=st.stream;
+      box.classList.remove('denied');box.classList.add('live');st.mode='live';
+    }catch(e){
+      box.classList.remove('live');box.classList.add('denied');st.mode='denied';
+      hint.style.display='flex';hint.innerHTML='CAMERA<br>DENIED · CLICK RETRY';
+    }
+  };
+}
+function resetPhotoBoxes(){
+  ['photo-h','photo-a'].forEach(id=>{
+    const box=document.getElementById(id),st=photoState[id];
+    if(st){stopCamStream(st.stream);st.stream=null;st.mode='idle';}
+    box.classList.remove('live','done','denied');
+    const hint=box.querySelector('.cam-hint');hint.style.display='';hint.innerHTML='CLICK TO<br>INITIALIZE<br>SCAN';
+    const video=box.querySelector('.cam-video');video.srcObject=null;
+    box.querySelector('.cam-canvas').getContext('2d').clearRect(0,0,120,140);
+  });
+}
+setupPhotoBox('photo-h');setupPhotoBox('photo-a');
+function bothCaptured(){return photoState['photo-h'].mode==='done'&&photoState['photo-a'].mode==='done';}
+let regAuthorized=false,pressing=false,pressProgress=0,pressIv=null;
+document.getElementById('btn-authorize').addEventListener('mousedown',()=>{
+  if(regAuthorized)return;
+  if(!bothCaptured()){
+    const note=document.querySelector('#scene-registration .hold-note')||document.getElementById('authorize-hint');
+    if(note){const old=note.innerText;note.innerText='PLEASE CAPTURE BOTH PORTRAITS FIRST · 请先完成双方拍摄';setTimeout(()=>note.innerText=old,1800);}
+    return;
+  }
+  pressing=true;
+  pressIv=setInterval(()=>{
+    pressProgress+=4;
+    document.getElementById('authorize-fill').style.width=Math.min(pressProgress,100)+'%';
+    if(pressProgress>=100){clearInterval(pressIv);doAuthorize();}
+  },40);
+});
+function endPress(){
+  if(regAuthorized)return;pressing=false;
+  clearInterval(pressIv);pressProgress=0;
+  document.getElementById('authorize-fill').style.width='0%';
+  document.querySelector('#btn-authorize span').innerText='HOLD TO AUTHORIZE';
+}
+document.getElementById('btn-authorize').addEventListener('mouseup',endPress);
+document.getElementById('btn-authorize').addEventListener('mouseleave',endPress);
+function doAuthorize(){
+  regAuthorized=true;
+  document.getElementById('stamp-approved').classList.add('in');
+  document.getElementById('reg-status').innerText='VALIDATED';
+  document.getElementById('reg-status').classList.add('accent-text');
+  document.querySelector('#btn-authorize span').innerText='REGISTRATION COMPLETE';
+  document.getElementById('btn-authorize').disabled=true;
+  document.getElementById('btn-issue').disabled=false;
+}
+document.getElementById('btn-issue').onclick=startCertificate;
+
+// certificate
+function startCertificate(){
+  document.getElementById('cert-body').innerHTML=`
+    <div class="kv"><span>RELATIONAL ID</span><span>R-08321</span></div>
+    <div class="kv"><span>HUMAN PARTY</span><span>H-01982</span></div>
+    <div class="kv"><span>NON-HUMAN PARTY</span><span>N-08321 · CANIS</span></div>
+    <div class="kv"><span>FORM OF RECOGNITION</span><span>CO-RESIDENCE</span></div>
+    <div class="kv"><span>OBSERVED INTERACTIONS</span><span>${nodes.length}</span></div>
+    <div class="kv"><span>REGISTERED</span><span>08/27/2042</span></div>
+    <div class="kv"><span>NEXT REVIEW</span><span>08/27/2043</span></div>`;
+  showScene('scene-certificate');
+}
+document.getElementById('btn-cert-restart').onclick=fullRestart;
+document.getElementById('btn-cert-hub').onclick=()=>showScene('scene-hub');
+document.getElementById('btn-cert-collective').onclick=()=>window.location.href='collective-animal-archive.html';
+document.getElementById('btn-cert-civ').onclick=()=>window.location.href='civilization-map.html';
+
+// hub / menu
+document.getElementById('menu-fab').onclick=()=>showScene('scene-hub');
+document.getElementById('hub-close').onclick=hideScenes;
+document.getElementById('hub-restart').onclick=fullRestart;
+document.getElementById('hub-collective').onclick=()=>window.location.href='collective-animal-archive.html';
+document.getElementById('hub-civ').onclick=()=>window.location.href='civilization-map.html';
+document.getElementById('hub-dissent').onclick=showDissentPrecedent;
+document.getElementById('hub-about').onclick=()=>showScene('scene-about');
+document.getElementById('about-back').onclick=()=>showScene('scene-hub');
+
+// dissent precedent: a sample case the registry declined (for demonstration)
+function showDissentPrecedent(){
+  document.getElementById('review-reasons').innerHTML=`
+    <div class="text-[10px] text-gray-500 mb-3">PRECEDENT ID R-11408 · REGISTRY DECISION 2041</div>
+    <div>✕ NON-HUMAN CONSENT NOT ESTABLISHED — inferred 0.41 (threshold 0.65); repeated decisive withdrawals recorded.</div>
+    <div>✕ CONFLICT INDEX TOO HIGH — 0.78 (limit 0.60).</div>
+    <div class="mt-3 normal-case tracking-normal text-[11px] text-gray-600">The non-human party repeatedly withdrew and maintained distance. Recognition was denied; the applicant may re-apply after a further observation period.</div>`;
+  showScene('scene-review');
+}
+
+// ============================================================
+// EVENTS
+// ============================================================
+document.getElementById('skip-btn').onclick=()=>{
+  // fast-forward physics
+  while(currentTime<MAX_T){
+    currentTime++;
+    for(let i=0;i<30;i++)simStep();
+  }
+  updateTimeUI();enterReplay(true);
+};
+document.getElementById('time-slider').oninput=e=>{
+  currentTime=parseInt(e.target.value);
+  document.getElementById('time-display').innerText='T='+String(currentTime).padStart(3,'0');
+};
+document.getElementById('begin-analysis').onclick=startMorphA;
+document.getElementById('generate-archive').onclick=startMorphB;
+document.getElementById('export-png').onclick=async()=>{
+  const mainCanvas=document.getElementById('main-p5-canvas');
+  const report=document.getElementById('report-content');
+  const domCanvas=await html2canvas(report,{
+    backgroundColor:null,
+    scale:2,
+    useCORS:true,
+    scrollX:0,
+    scrollY:0,
+    windowWidth:window.innerWidth,
+    windowHeight:window.innerHeight
+  });
+  const out=document.createElement('canvas');
+  out.width=window.innerWidth*2;
+  out.height=window.innerHeight*2;
+  const ctx=out.getContext('2d');
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,out.width,out.height);
+  ctx.drawImage(mainCanvas,0,0,out.width,out.height);
+  const rect=report.getBoundingClientRect();
+  ctx.drawImage(domCanvas,rect.left*2,rect.top*2);
+  const a=document.createElement('a');
+  a.download='RELATIONAL_ANALYSIS.png';
+  a.href=out.toDataURL('image/png');
+  a.click();
+};
+document.getElementById('adv-toggle').onclick=()=>document.getElementById('adv-panel').classList.toggle('open');
+document.getElementById('seal-btn').onclick=goConsent;
+document.getElementById('restart-btn').onclick=fullRestart;
+document.getElementById('collective-btn').onclick=()=>window.location.href='collective-animal-archive.html';
+document.getElementById('jump-return').onclick=()=>document.getElementById('jump-overlay').style.display='none';
+
+// orbit ring focus click
+function mousePressed(){
+  if(phase!==P.ORBIT)return;
+  let C=ringCenter();
+  let d=dist(mouseX,mouseY,C.x,C.y);
+  if(d>90&&d<430){
+    let nearest=-1,nd=999;
+    for(let i=0;i<5;i++){
+      let rd=abs(d-RING_BASE[i]*orbitScale);
+      if(rd<nd){nd=rd;nearest=i;}
+    }
+    if(nd<35&&visibleLayers[nearest])focusLayer=focusLayer===nearest?-1:nearest;
+    else focusLayer=-1;
+    document.getElementById('orbit-hint').style.display=focusLayer>=0?'block':'none';
+  }
+}
+function keyPressed(){
+  if(key==='Escape'){focusLayer=-1;document.getElementById('orbit-hint').style.display='none';}
+}
+
+// stage rail navigation (instant jumps)
+document.querySelectorAll('.stage-seg').forEach(el=>{
+  el.onclick=()=>{
+    let s=parseInt(el.dataset.stage);
+    if(s===0){fullRestart();return;}
+    if(!stats){return;}
+    if(s===1){
+      phase=P.REPLAY;setStage(1);
+      showLayer('ui-analysis',false);showLayer('ui-orbit',false);showLayer('ui-act1',true);
+      document.getElementById('skip-btn').classList.add('hidden');
+      document.getElementById('begin-analysis').classList.remove('hidden');
+      document.getElementById('time-slider').disabled=false;
+    }
+    if(s===2){
+      phase=P.ANALYSIS;setStage(2);
+      showLayer('ui-act1',false);showLayer('ui-orbit',false);showLayer('ui-analysis',true);
+      focusRow=-1;
+    }
+    if(s===3||s===4){
+      // need ring angles assigned
+      for(let n of nodes){
+        let t=TYPES.indexOf(n.type);
+        let prm=stats.per[n.type];
+        let span=map(prm.duration,0,1,PI*0.3,TWO_PI*0.9);
+        n.ringAng=ringStartAngles[t]+n.slot*span;
+      }
+      phase=P.ORBIT;setStage(4);
+      showLayer('ui-act1',false);showLayer('ui-analysis',false);showLayer('ui-orbit',true);
+    }
+  };
+});
+</script>
+
+<!-- ===== cover animated grid (instance mode, from file 1) ===== -->
+<script>
+window.addEventListener('load',()=>{
+  if(typeof p5==='undefined')return;
+  new p5((p)=>{
+    let dimHeight=25,dimWidth,sectors=[],colors=[],sectorW,sectorH;
+    const PALETTE=["#ffffff","#03045e","#023e8a","#0077b6","#0096c7","#00b4d8","#48cae4","#90e0ef","#ade8f4","#caf0f8","#f72585","#b5179e","#7209b7","#560bad","#480ca8","#3a0ca3","#3f37c9","#4361ee","#4895ef","#4cc9f0","#03071e","#370617","#6a040f","#9d0208","#d00000","#dc2f02","#e85d04","#f48c06","#faa307","#ffba08","#007f5f","#2b9348","#55a630","#80b918","#aacc00","#bfd200","#d4d700","#dddf00","#eeef20","#ffff3f"];
+    function arrayMove(arr,f,t){let e=arr[f];arr.splice(f,1);arr.splice(t,0,e);}
+    function createSectors(){
+      sectorH=p.windowHeight/dimHeight;
+      dimWidth=parseInt(p.windowWidth/sectorH)+1;
+      sectorW=p.windowWidth/dimWidth;
+      for(let i=0;i<dimWidth;i++)for(let j=0;j<dimHeight;j++)sectors.push(new Sector(i*sectorW,j*sectorH,sectors.length));
+      for(let s of sectors)s.setAdoptedColor(parseInt(p.random(sectors.length)));
+    }
+    class Sector{
+      constructor(x,y,i){
+        this.pos=p.createVector(x,y);
+        this.center=p.createVector(x+sectorW*0.5,y+sectorH*0.5);
+        this.baseColor=p.color(PALETTE[parseInt(p.random(PALETTE.length-1))]);
+        this.baseColor.setAlpha(15);
+        this.adoptedColor=this.baseColor;
+        this.strokeWeight=1;this.strokeWeightDelta=1;
+        this.lenAdjust=0;this.lenAdjustRate=0.5;
+        this.sideToIgnore=parseInt(p.random(4));
+        this.ellipseDiameter=0;this.ellipseRate=1;
+        this.c=p.color(p.red(this.baseColor),p.green(this.baseColor),p.blue(this.baseColor));
+        this.c.setAlpha(180);
+        this.index=i;this.sharedColor=this.c;
+        this.clicked=false;this.clickedOnce=false;this.mousedOver=false;
+      }
+      mouseIsInSector(){
+        if(p.mouseX>=this.pos.x&&p.mouseX<=this.pos.x+sectorW&&p.mouseY>=this.pos.y&&p.mouseY<=this.pos.y+sectorH&&p.frameCount>10){this.mousedOver=true;return true;}
+        return false;
+      }
+      setAdoptedColor(ri){this.adoptedColor=sectors[ri].c;this.sharedColor=p.lerpColor(this.adoptedColor,this.c,0.5);}
+      display(){
+        this.displayPartialBox();
+        if(this.clickedOnce){p.fill(this.c);p.rect(this.pos.x,this.pos.y,sectorW,sectorH);p.noFill();}
+        if(!this.mouseIsInSector()&&this.clicked){
+          this.strokeWeight-=this.strokeWeightDelta*0.05;this.lenAdjust-=this.lenAdjustRate*0.05;this.ellipseDiameter-=this.ellipseRate*0.08;
+          this.strokeWeight=Math.max(0,this.strokeWeight);this.lenAdjust=Math.max(0,this.lenAdjust);this.ellipseDiameter=Math.max(0,this.ellipseDiameter);
+          if(this.strokeWeight===0&&this.lenAdjust===0&&this.ellipseDiameter===0)this.clicked=false;
+        }
+      }
+      accelerateDisplay(){
+        if(p.frameCount>10){this.strokeWeight+=this.strokeWeightDelta*4;this.lenAdjust+=this.lenAdjustRate*15;this.ellipseDiameter+=this.ellipseRate*8;this.clicked=true;this.clickedOnce=true;}
+      }
+      displayPartialBox(){
+        if(this.mouseIsInSector()){
+          this.ellipseDiameter+=this.ellipseRate;
+          if(p.frameCount%20===0){this.sideToIgnore=(this.sideToIgnore+1)%4;}
+        }
+        p.noFill();
+        if(this.mousedOver){
+          p.strokeWeight(this.strokeWeight);p.stroke(this.adoptedColor);
+          if(this.sideToIgnore!==0)p.line(this.pos.x,this.pos.y-this.lenAdjust,this.pos.x,this.pos.y+sectorH+2*this.lenAdjust);
+          if(this.sideToIgnore!==1)p.line(this.pos.x-this.lenAdjust,this.pos.y,this.pos.x+sectorW+2*this.lenAdjust,this.pos.y);
+          if(this.sideToIgnore!==2)p.line(this.pos.x+sectorW,this.pos.y-this.lenAdjust,this.pos.x+sectorW,this.pos.y+sectorH+2*this.lenAdjust);
+          if(this.sideToIgnore!==3)p.line(this.pos.x-this.lenAdjust,this.pos.y+sectorH,this.pos.x+sectorW+2*this.lenAdjust,this.pos.y+sectorH);
+        }
+        p.noStroke();p.fill(this.c);p.ellipse(this.center.x,this.center.y,this.ellipseDiameter,this.ellipseDiameter);p.noFill();
+      }
+    }
+    p.setup=()=>{let c=p.createCanvas(p.windowWidth,p.windowHeight);c.parent('cover-bg');p.background(255);colors=PALETTE;createSectors();};
+    p.draw=()=>{p.background(255);for(let s of sectors)s.display();};
+    p.windowResized=()=>{p.resizeCanvas(p.windowWidth,p.windowHeight);sectors=[];createSectors();};
+    p.mouseClicked=()=>{
+      let inUI=p.mouseX>p.width/2-250&&p.mouseX<p.width/2+250&&p.mouseY>p.height/2-150&&p.mouseY<p.height/2+150;
+      if(!inUI)for(let s of sectors)if(s.mouseIsInSector()){s.accelerateDisplay();arrayMove(sectors,s.index,sectors.length-1);}
+    };
+  },'cover-bg');
+});
+</script>
+
+<!-- ===== arrival calibration (instance mode, from file 2) ===== -->
+<script>
+window.addEventListener('load',()=>{
+  if(typeof p5==='undefined')return;
+  const defaultParams={
+    bodyScale:0.64,movementRange:0.70,movementDirection:0.5,movementComplexity:0.8,
+    breathingFrequency:0.60,breathingStability:0.3,sensorySensitivity:0.9,communicationConfidence:0.90,
+    autonomyLevel:0.16,personalBoundary:0.40,memoryDensity:0.7,emotionalRhythm:0.6,
+    biologicalRhythm:0.02,energyLevel:0.8,spatialPreference:0.7,adaptability:0.7,consentReadiness:0.85,
+    translationUncertainty:0.5,identityVariation:12345,flashAlpha:0
+  };
+  const state={
+    human:{...defaultParams,mode:'Human',breathingStability:0.9,movementComplexity:0.3},
+    animal:{...defaultParams,mode:'Animal',bodyScale:0.50,movementRange:0.82,breathingFrequency:0.05,autonomyLevel:0.30,communicationConfidence:0.60}
+  };
+  const slidersConfig=[
+    {label:'Body Scale',key:'bodyScale'},{label:'Movement Range',key:'movementRange'},
+    {label:'Breath Frequency',key:'breathingFrequency'},{label:'Autonomy Level',key:'autonomyLevel'},
+    {label:'Personal Boundary',key:'personalBoundary'},{label:'Comm. Confidence',key:'communicationConfidence'}
+  ];
+  function createSliders(type){
+    const container=document.getElementById(type+'-controls');
+    slidersConfig.forEach(s=>{
+      const div=document.createElement('div');
+      div.className='flex flex-col';
+      div.innerHTML=
+        '<div class="flex justify-between mb-2 text-gray-500"><span>'+s.label+'</span><span id="'+type+'-val-'+s.key+'" class="text-black">'+state[type][s.key].toFixed(2)+'</span></div>'+
+        '<input type="range" min="0.01" max="1" step="0.01" value="'+state[type][s.key]+'">';
+      div.querySelector('input').addEventListener('input',function(){
+        state[type][s.key]=parseFloat(this.value);
+        document.getElementById(type+'-val-'+s.key).innerText=state[type][s.key].toFixed(2);
+      });
+      container.appendChild(div);
+    });
+  }
+  createSliders('human');createSliders('animal');
+  document.getElementById('human-seed').addEventListener('click',()=>{state.human.identityVariation=Math.floor(Math.random()*100000);state.human.flashAlpha=200;});
+  document.getElementById('animal-seed').addEventListener('click',()=>{state.animal.identityVariation=Math.floor(Math.random()*100000);state.animal.flashAlpha=200;});
+  setInterval(()=>{document.getElementById('arrival-sys-time').innerText=new Date().toLocaleTimeString('en-US',{hour12:false});},1000);
+
+  let currentStep=1,globalT=0;
+  let targetHumanX,targetAnimalX,currentHumanX,currentAnimalX;
+  const panH=document.getElementById('panel-human'),panA=document.getElementById('panel-animal');
+  const wizard=document.getElementById('arrival-wizard'),subtitle=document.getElementById('arrival-subtitle');
+  const centerLine=document.getElementById('arrival-center-line');
+
+  function resetFlow(){
+    currentStep=1;
+    panH.className='arrival-panel panel-left-active';
+    panA.className='arrival-panel panel-right-hidden';
+    centerLine.style.opacity='0';
+    subtitle.innerText='PHASE 01-A: HUMAN CALIBRATION';subtitle.style.color='#000';
+    wizard.className='px-8 py-3 border border-black bg-white hover:bg-black hover:text-white transition tracking-[3px] text-[11px]';
+    wizard.innerText='NEXT: CO-RESIDENT CALIBRATION →';
+    targetHumanX=currentHumanX=window.innerWidth*0.5;
+    targetAnimalX=currentAnimalX=window.innerWidth*1.5;
+  }
+  window.__arrivalReset=resetFlow;
+
+  wizard.addEventListener('click',()=>{
+    if(currentStep===1){
+      currentStep=2;
+      panH.className='arrival-panel panel-left-hidden';
+      panA.className='arrival-panel panel-right-active';
+      subtitle.innerText='PHASE 01-B: NON-HUMAN CALIBRATION';subtitle.style.color='#d00000';
+      wizard.innerText='CONFIRM BOTH SEEDS (STANDOFF)';
+      targetHumanX=-window.innerWidth*0.5;targetAnimalX=window.innerWidth*0.5;
+    }else if(currentStep===2){
+      currentStep=3;
+      panH.className='arrival-panel panel-left-hidden';
+      panA.className='arrival-panel panel-right-hidden';
+      centerLine.style.opacity='1';
+      subtitle.innerText='PHASE 01-C: IDENTITY STANDOFF & SYNC';subtitle.style.color='#000';
+      wizard.className='px-10 py-3 bg-black text-white hover:bg-gray-800 transition tracking-[3px] text-[11px]';
+      wizard.innerText='PROCEED TO INTERACTION';
+      targetHumanX=window.innerWidth*0.3;targetAnimalX=window.innerWidth*0.7;
+    }else if(currentStep===3){
+      if(typeof enterEncounter==='function')enterEncounter();
+    }
+  });
+
+  new p5((p)=>{
+    p.setup=()=>{
+      let c=p.createCanvas(p.windowWidth,p.windowHeight);c.parent('arrival-canvas');
+      p.angleMode(p.RADIANS);p.strokeCap(p.SQUARE);
+      resetFlow();
+    };
+    p.windowResized=()=>{
+      p.resizeCanvas(p.windowWidth,p.windowHeight);
+      if(currentStep===1){targetHumanX=p.windowWidth*0.5;targetAnimalX=p.windowWidth*1.5;}
+      else if(currentStep===2){targetHumanX=-p.windowWidth*0.5;targetAnimalX=p.windowWidth*0.5;}
+      else{targetHumanX=p.windowWidth*0.3;targetAnimalX=p.windowWidth*0.7;}
+    };
+    p.draw=()=>{
+      p.background(255);
+      globalT+=0.02;
+      currentHumanX=p.lerp(currentHumanX,targetHumanX,0.05);
+      currentAnimalX=p.lerp(currentAnimalX,targetAnimalX,0.05);
+      let scaleFactor=p.min(p.width,p.height)/850;
+      p.push();p.translate(currentHumanX,p.height/2);p.scale(scaleFactor);drawEntity(state.human,globalT);
+      p.fill(200);p.noStroke();p.textAlign(p.CENTER);p.textSize(14);p.textStyle(p.BOLD);
+      if(currentStep===3)p.text('[H-PENDING]',0,-350);
+      p.pop();
+      p.push();p.translate(currentAnimalX,p.height/2);p.scale(scaleFactor);drawEntity(state.animal,globalT);
+      p.fill(200);p.noStroke();p.textAlign(p.CENTER);p.textSize(14);p.textStyle(p.BOLD);
+      if(currentStep===3)p.text('[N-PENDING]',0,-350);
+      p.pop();
+      if(state.human.flashAlpha>0){p.fill(0,0,0,state.human.flashAlpha);p.noStroke();p.rect(0,0,p.width,p.height);state.human.flashAlpha-=15;}
+      if(state.animal.flashAlpha>0){p.fill(0,0,0,state.animal.flashAlpha);p.noStroke();p.rect(0,0,p.width,p.height);state.animal.flashAlpha-=15;}
+    };
+    function drawEntity(cur,timeVar){
+      p.push();
+      p.randomSeed(cur.identityVariation);p.noiseSeed(cur.identityVariation);
+      let rings=p.floor(p.map(cur.memoryDensity,0,1,1,15));
+      let maxR=p.map(cur.bodyScale,0,1,40,160)*0.8;
+      p.noFill();p.stroke(40,40,40,80);p.strokeWeight(0.5);
+      for(let i=1;i<=rings;i++){
+        let r=p.map(i,0,rings,5,maxR);
+        if(cur.mode==='Human'){p.circle(0,0,r*2);}
+        else{p.beginShape();for(let a=0;a<p.TWO_PI;a+=0.2){let n=p.map(p.noise(p.cos(a)+i,p.sin(a)+timeVar*0.05),0,1,-5,5);p.vertex(p.cos(a)*(r+n),p.sin(a)*(r+n));}p.endShape(p.CLOSE);}
+      }
+      let baseR=p.map(cur.bodyScale,0,1,40,160);
+      let detail=cur.mode==='Human'?60:120;
+      p.stroke(20);p.strokeWeight(1.5);p.noFill();p.beginShape();
+      for(let i=0;i<=detail;i++){
+        let angle=p.map(i,0,detail,0,p.TWO_PI),noiseVal=0;
+        if(cur.mode==='Animal'){
+          let adapt=timeVar*cur.adaptability;
+          noiseVal=p.map(p.noise(p.cos(angle)*(1.1-cur.breathingStability)+adapt,p.sin(angle)*(1.1-cur.breathingStability)+adapt),0,1,-25,25);
+        }
+        let breath=p.sin(timeVar*cur.breathingFrequency*10+angle*2)*5;
+        let r=baseR+noiseVal+breath;p.vertex(p.cos(angle)*r,p.sin(angle)*r);
+      }
+      p.endShape();
+      let lineCount=p.floor(p.map(cur.movementComplexity,0,1,10,80));
+      let maxLen=p.map(cur.movementRange,0,1,50,250);
+      let biasAngle=cur.movementDirection*p.TWO_PI;
+      p.stroke(100,120,130,180);p.strokeWeight(0.8);
+      for(let i=0;i<lineCount;i++){
+        let angle=cur.mode==='Human'?p.map(i,0,lineCount,0,p.TWO_PI):p.randomGaussian(biasAngle,p.map(cur.spatialPreference,0,1,0.1,p.PI));
+        let r2=baseR+p.noise(i,100)*maxLen,startR=baseR*1.1;
+        p.line(p.cos(angle)*startR,p.sin(angle)*startR,p.cos(angle)*r2,p.sin(angle)*r2);
+      }
+      let commR=baseR+30;p.noFill();p.strokeWeight(2);
+      if(cur.mode==='Human'){p.stroke(50,100,200,200);p.drawingContext.setLineDash([10,5]);p.circle(0,0,commR*2);}
+      else{
+        p.stroke(200,100,50,200);
+        let dashLen=p.map(cur.communicationConfidence,0,1,1,30),gapLen=p.map(cur.translationUncertainty,0,1,2,40);
+        p.drawingContext.setLineDash([dashLen,gapLen,dashLen*0.5,gapLen*2]);
+        p.circle(0,0,(commR+p.sin(timeVar*cur.emotionalRhythm*20)*2)*2);
+      }
+      p.drawingContext.setLineDash([]);
+      let outerR=p.map(cur.autonomyLevel,0,1,180,380);
+      let gapAngle=p.map(cur.personalBoundary,0,1,0,p.PI);
+      let arcConsent=p.map(cur.consentReadiness,0,1,0,p.TWO_PI);
+      p.noFill();p.stroke(10);p.strokeWeight(3);
+      let startAngle=timeVar*0.2;
+      if(cur.mode==='Human'){
+        p.arc(0,0,outerR*2,outerR*2,startAngle,startAngle+arcConsent-gapAngle);
+        p.arc(0,0,(outerR-10)*2,(outerR-10)*2,startAngle+p.PI,startAngle+p.PI+arcConsent*0.5);
+      }else{
+        let numArcs=p.floor(p.random(2,6));
+        for(let i=0;i<numArcs;i++)p.arc(0,0,outerR*2,outerR*2,startAngle+p.random(0,p.TWO_PI),startAngle+p.random(0,p.TWO_PI)+p.random(0.2,arcConsent/numArcs));
+      }
+      let pCount=p.floor(p.map(cur.energyLevel,0,1,3,20));
+      let coreRadius=10+p.sin(timeVar*cur.emotionalRhythm*10)*3;
+      p.noStroke();p.fill(30,35,40);p.circle(0,0,coreRadius);p.fill(200,50,50,150);
+      for(let i=0;i<pCount;i++){
+        let angle=p.noise(i,timeVar*0.5)*p.TWO_PI*2,rad=coreRadius+p.noise(i+10,timeVar*0.5)*15;
+        p.circle(p.cos(angle)*rad,p.sin(angle)*rad,3);
+      }
+      p.pop();
+    }
+  },'arrival-canvas');
+});
+</script>
+</body>
+</html>

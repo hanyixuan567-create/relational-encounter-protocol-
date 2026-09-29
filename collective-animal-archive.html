@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23ffffff'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%237636ff' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23000000'/%3E%3C/svg%3E">
+<title>Collective Animal Archive</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#fff;overflow:hidden;font-family:'Courier New',Courier,monospace;}
+  canvas{display:block;}
+
+  #tooltip{
+    position:fixed;pointer-events:none;display:none;background:#fff;border:1px solid #000;
+    padding:10px 14px;font-size:10px;line-height:1.9;z-index:100;min-width:180px;
+  }
+  #tooltip .tt-id{font-weight:bold;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:4px;}
+
+  .page-btn{
+    background:#fff;border:1px solid #000;padding:8px 20px;font-family:'Courier New',monospace;
+    font-size:11px;letter-spacing:2px;cursor:pointer;transition:all .2s;
+  }
+  .page-btn:hover{background:#000;color:#fff;}
+  .page-btn:disabled{opacity:.3;cursor:not-allowed;}
+  .page-btn:disabled:hover{background:#fff;color:#000;}
+
+  #pagination{
+    position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:center;gap:20px;z-index:20;font-size:11px;letter-spacing:2px;
+  }
+</style>
+</head>
+<body>
+
+<button class="page-btn" style="position:fixed;top:14px;left:16px;z-index:50;" onclick="window.location.href='index.html'">← RETURN TO PROTOCOL 返回协议</button>
+
+<div id="tooltip">
+  <div class="tt-id"></div>
+  <div>PRIMARY: <span class="tt-primary"></span></div>
+  <div>DATE: <span class="tt-date"></span></div>
+  <div>INTERACTIONS: <span class="tt-count"></span></div>
+  <div>SYNC INDEX: <span class="tt-sync"></span></div>
+</div>
+
+<div id="pagination">
+  <button class="page-btn" id="prev-btn">‹ PREV</button>
+  <span id="page-info">PAGE 01 / 08</span>
+  <button class="page-btn" id="next-btn">NEXT ›</button>
+</div>
+
+<script>
+// ==========================================
+// CONFIG
+// ==========================================
+const COLORS={
+  CO_PRESENCE:'#70d6ff',
+  CARE:'#d00000',
+  RESOURCE:'#560bad',
+  EMOTIONAL:'#ff70a6',
+  SPATIAL:'#d4d700'
+};
+const TKEYS=['CO_PRESENCE','CARE','RESOURCE','EMOTIONAL','SPATIAL'];
+const COLS=6, ROWS=4, PER_PAGE=24;
+const TOTAL_PAGES=8;
+
+// ==========================================
+// STATE
+// ==========================================
+let allRecords=[];
+let currentPage=0;
+let pageEnterTime=0;
+let hoveredIdx=-1;
+let clickedIdx=-1;
+let clickAnim=0; // 0→1 fly to center
+let globalFrame=0;
+
+// Grid geometry
+let gridStartX, gridStartY, cellW, cellH, ringRadius;
+
+// ==========================================
+// DATA GENERATION
+// ==========================================
+function generateAllRecords(){
+  allRecords=[];
+  let idCounter=10000;
+  for(let p=0;p<TOTAL_PAGES;p++){
+    let page=[];
+    for(let i=0;i<PER_PAGE;i++){
+      idCounter++;
+      let params={};
+      let totalEvents=0;
+      for(let t of TKEYS){
+        params[t]={
+          duration:random(0.15,0.95),
+          intensity:random(0.2,0.9),
+          conflict:random(0.05,0.7),
+          density:random(0.1,0.9),
+          startAngle:random(TWO_PI),
+          rotSpeed:random(-0.004,0.004)
+        };
+        totalEvents+=floor(params[t].density*25);
+      }
+      // Find primary
+      let primary=TKEYS[0],pVal=0;
+      for(let t of TKEYS){
+        if(params[t].density>pVal){pVal=params[t].density;primary=t;}
+      }
+      let month=floor(random(1,13));
+      let day=floor(random(1,29));
+      page.push({
+        id:'R-'+idCounter,
+        params:params,
+        primary:primary,
+        date:'2050.'+String(month).padStart(2,'0')+'.'+String(day).padStart(2,'0'),
+        totalEvents:totalEvents,
+        syncIndex:random(0.3,0.9).toFixed(2),
+        appearDelay:i*45 // staggered scan-in
+      });
+    }
+    allRecords.push(page);
+  }
+}
+
+// ==========================================
+// SETUP
+// ==========================================
+function setup(){
+  createCanvas(windowWidth,windowHeight);
+  angleMode(RADIANS);
+  computeGrid();
+  generateAllRecords();
+  pageEnterTime=millis();
+
+  document.getElementById('prev-btn').onclick=()=>changePage(-1);
+  document.getElementById('next-btn').onclick=()=>changePage(1);
+}
+
+function computeGrid(){
+  let margin=100;
+  let topMargin=120;
+  let bottomMargin=120;
+  cellW=(width-margin*2)/COLS;
+  cellH=(height-topMargin-bottomMargin)/ROWS;
+  gridStartX=margin;
+  gridStartY=topMargin;
+  ringRadius=min(cellW,cellH)*0.38;
+}
+
+function windowResized(){
+  resizeCanvas(windowWidth,windowHeight);
+  computeGrid();
+}
+
+function changePage(dir){
+  let np=currentPage+dir;
+  if(np<0||np>=TOTAL_PAGES)return;
+  currentPage=np;
+  pageEnterTime=millis();
+  hoveredIdx=-1;
+  clickedIdx=-1;
+  clickAnim=0;
+  updatePageInfo();
+}
+
+function updatePageInfo(){
+  document.getElementById('page-info').innerText=
+    'PAGE '+String(currentPage+1).padStart(2,'0')+' / '+String(TOTAL_PAGES).padStart(2,'0');
+  document.getElementById('prev-btn').disabled=currentPage===0;
+  document.getElementById('next-btn').disabled=currentPage===TOTAL_PAGES-1;
+}
+
+// ==========================================
+// DRAW
+// ==========================================
+function draw(){
+  background(255);
+  globalFrame++;
+
+  // Title
+  fill(20);noStroke();textFont('Courier New');
+  textSize(22);textAlign(LEFT,TOP);
+  text('COLLECTIVE ANIMAL ARCHIVE',60,74);
+  textSize(10);fill(150);
+  text('CO-RESIDENCE CIVIC REGISTRY // COLLECTIVE INDEX',60,106);
+
+  let records=allRecords[currentPage];
+  let now=millis();
+
+  // Click fly-to-center animation overrides grid
+  if(clickedIdx>=0){
+    clickAnim=lerp(clickAnim,1,0.06);
+    let e=1-Math.pow(1-clickAnim,3);
+
+    // Draw all rings fading/scattering
+    for(let i=0;i<PER_PAGE;i++){
+      if(i===clickedIdx)continue;
+      let pos=getCellPos(i);
+      let rec=records[i];
+      let alpha=150*(1-e);
+      push();translate(pos.x,pos.y);
+      drawMiniRing(rec,ringRadius*(1-e*0.3),alpha,i);
+      pop();
+    }
+
+    // Draw clicked ring flying to center and enlarging
+    let fromPos=getCellPos(clickedIdx);
+    let cx=lerp(fromPos.x,width/2,e);
+    let cy=lerp(fromPos.y,height/2,e);
+    let r=lerp(ringRadius,min(width,height)*0.32,e);
+    let rec=records[clickedIdx];
+    push();translate(cx,cy);
+    drawMiniRing(rec,r,255,clickedIdx,true);
+    pop();
+
+    // When animation done, show ID overlay
+    if(e>0.95){
+      fill(0);noStroke();textAlign(CENTER,CENTER);textSize(14);
+      text(rec.id,width/2,height/2+r+40);
+      textSize(10);fill(120);
+      text('CLICK TO RETURN TO ARCHIVE',width/2,height/2+r+65);
+    }
+    return;
+  }
+
+  // Normal grid
+  hoveredIdx=-1;
+  for(let i=0;i<PER_PAGE;i++){
+    let pos=getCellPos(i);
+    let rec=records[i];
+
+    // Staggered scan-in
+    let elapsed=now-pageEnterTime;
+    let appearAt=rec.appearDelay;
+    let appearProgress=constrain((elapsed-appearAt)/400,0,1);
+    appearProgress=1-Math.pow(1-appearProgress,3);
+
+    if(appearProgress<=0)continue;
+
+    // Number label
+    fill(0,180*appearProgress);noStroke();
+    textSize(11);textAlign(LEFT,CENTER);
+    text(String(i+1).padStart(2,'0'),pos.x-cellW/2+8,pos.y-cellH/2+12);
+
+    // Hover detection
+    let d=dist(mouseX,mouseY,pos.x,pos.y);
+    let isHover=d<ringRadius*1.2;
+    if(isHover)hoveredIdx=i;
+
+    let scale=isHover?1.3:1;
+    let r=ringRadius*scale*appearProgress;
+    let alpha=255*appearProgress;
+
+    push();translate(pos.x,pos.y);
+    drawMiniRing(rec,r,alpha,i,isHover);
+    pop();
+  }
+
+  updateTooltip(records);
+}
+
+function getCellPos(i){
+  let col=i%COLS;
+  let row=floor(i/COLS);
+  return {
+    x:gridStartX+col*cellW+cellW/2,
+    y:gridStartY+row*cellH+cellH/2
+  };
+}
+
+// ==========================================
+// MINI RING RENDER
+// ==========================================
+function drawMiniRing(rec,r,alpha,idx,isHover){
+  let extraRot=isHover?globalFrame*0.015:0;
+
+  for(let t of TKEYS){
+    let p=rec.params[t];
+    let c=color(COLORS[t]);
+
+    // Track
+    c.setAlpha(130*(alpha/255));
+    stroke(c);
+    strokeWeight(map(p.intensity,0,1,1.5,6));
+    noFill();
+
+    if(p.conflict>0.6)drawingContext.setLineDash([2,6]);
+    else if(p.conflict>0.3)drawingContext.setLineDash([8,5]);
+    else drawingContext.setLineDash([]);
+
+    let span=map(p.duration,0,1,PI*0.15,TWO_PI*0.85);
+    let startA=p.startAngle+extraRot*p.rotSpeed*10;
+
+    // 5 layers at different sub-radii within the mini ring
+    let layerMap={CARE:0.35,EMOTIONAL:0.5,RESOURCE:0.65,CO_PRESENCE:0.8,SPATIAL:0.95};
+    let lr=r*layerMap[t];
+    arc(0,0,lr*2,lr*2,startA,startA+span);
+  }
+  drawingContext.setLineDash([]);
+
+  // Small marker symbols (sparse for mini view)
+  let numMarkers=isHover?6:3;
+  for(let m=0;m<numMarkers;m++){
+    let t=TKEYS[m%5];
+    let p=rec.params[t];
+    let layerMap={CARE:0.35,EMOTIONAL:0.5,RESOURCE:0.65,CO_PRESENCE:0.8,SPATIAL:0.95};
+    let lr=r*layerMap[t];
+    let ang=p.startAngle+map(m,0,numMarkers,0,map(p.duration,0,1,PI*0.15,TWO_PI*0.85))+extraRot;
+    let mx=cos(ang)*lr;
+    let my=sin(ang)*lr;
+    let mc=color(COLORS[t]);
+    mc.setAlpha(alpha);
+    fill(mc);noStroke();
+    let s=max(2,r*0.06);
+    if(t==='CO_PRESENCE')circle(mx,my,s);
+    else if(t==='CARE'){rectMode(CENTER);rect(mx,my,s,s*0.3);rect(mx,my,s*0.3,s);}
+    else if(t==='RESOURCE')triangle(mx,my-s,mx+s*0.7,my+s*0.7,mx-s*0.7,my+s*0.7);
+    else if(t==='EMOTIONAL'){rectMode(CENTER);square(mx,my,s*0.8);}
+    else if(t==='SPATIAL'){rectMode(CENTER);rect(mx,my,s*1.4,s*0.35);}
+  }
+}
+
+// ==========================================
+// TOOLTIP
+// ==========================================
+function updateTooltip(records){
+  let tt=document.getElementById('tooltip');
+  if(hoveredIdx>=0&&clickedIdx<0){
+    let rec=records[hoveredIdx];
+    tt.style.display='block';
+    let pos=getCellPos(hoveredIdx);
+    tt.style.left=(pos.x+ringRadius+15)+'px';
+    tt.style.top=(pos.y-30)+'px';
+    tt.querySelector('.tt-id').innerText=rec.id;
+    tt.querySelector('.tt-primary').innerText=rec.primary.replace('_',' ');
+    tt.querySelector('.tt-date').innerText=rec.date;
+    tt.querySelector('.tt-count').innerText=rec.totalEvents;
+    tt.querySelector('.tt-sync').innerText=rec.syncIndex;
+  }else{
+    tt.style.display='none';
+  }
+}
+
+// ==========================================
+// MOUSE
+// ==========================================
+function mousePressed(){
+  if(clickedIdx>=0){
+    // Click to return
+    clickedIdx=-1;
+    clickAnim=0;
+    return;
+  }
+  if(hoveredIdx>=0){
+    clickedIdx=hoveredIdx;
+    clickAnim=0;
+  }
+}
+</script>
+</body>
+</html>
