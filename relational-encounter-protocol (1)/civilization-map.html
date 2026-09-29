@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23ffffff'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%237636ff' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23000000'/%3E%3C/svg%3E">
+  <title>Human-Animal Civilization Map - IRTC</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background-color: #ffffff; color: #000; font-family: 'Courier New', Courier, monospace; }
+    canvas { cursor: grab; }
+    canvas:active { cursor: grabbing; }
+    
+    /* 档案局仪器感滑块 */
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 6px; background: #000; cursor: pointer; margin-top: -8px; }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 2px; cursor: pointer; background: #d1d5db; }
+    
+    .ui-overlay { pointer-events: none; }
+    .interactive { pointer-events: auto; }
+  </style>
+</head>
+<body class="text-[11px] tracking-widest uppercase select-none">
+
+<button class="interactive fixed top-4 left-4 z-[150] bg-white border border-black px-4 py-2 text-[11px] tracking-[2px] hover:bg-black hover:text-white transition" onclick="window.location.href='index.html'">← RETURN TO PROTOCOL 返回协议</button>
+
+  <!-- ========================================== -->
+  <!-- 四角装饰与文本信息 -->
+  <!-- ========================================== -->
+  <div class="absolute inset-0 ui-overlay pt-16 px-10 pb-10 flex flex-col justify-between z-10">
+    
+    <!-- 顶部 -->
+    <div class="flex justify-between items-start">
+      <!-- 左上：主标题 -->
+      <div>
+        <h1 class="text-3xl font-bold tracking-widest leading-tight">HUMAN-ANIMAL<br>CIVILIZATION MAP</h1>
+        <p class="mt-2 text-gray-500">CO-RESIDENCE CIVIC REGISTRY // MACRO PERSPECTIVE</p>
+      </div>
+      <!-- 右上：机构状态 -->
+      <div class="text-right text-[10px] text-gray-500 leading-relaxed">
+        <p class="text-black font-bold mb-1">DATA STATUS: LIVE COMPILING</p>
+        <p>TOTAL RECORDS: 14,028,933</p>
+        <p>ACTIVE NODES: <span id="node-count" class="animate-pulse text-black">CALCULATING...</span></p>
+      </div>
+    </div>
+
+    <!-- 底部 -->
+    <div class="flex justify-between items-end">
+      <!-- 左下：精准还原的图例 -->
+      <div class="space-y-3 text-[10px] bg-white/80 p-3 border border-gray-100" id="legend-container">
+        <p class="font-bold border-b border-black pb-1 mb-3">CIVILIZATION VECTORS</p>
+        
+        <!-- 蓝圆: CO-PRESENCE -->
+        <div class="flex items-center">
+          <div class="w-6 flex justify-center"><span class="inline-block w-3 h-3 rounded-full bg-[#70d6ff]"></span></div>
+          <span>CO-PRESENCE</span>
+        </div>
+        
+        <!-- 红十字: CARE -->
+        <div class="flex items-center">
+          <div class="w-6 flex justify-center">
+            <div class="relative w-3.5 h-3.5">
+              <div class="absolute top-1/2 left-0 w-3.5 h-[3px] bg-[#d00000] -translate-y-1/2"></div>
+              <div class="absolute top-0 left-1/2 w-[3px] h-3.5 bg-[#d00000] -translate-x-1/2"></div>
+            </div>
+          </div>
+          <span>CARE</span>
+        </div>
+
+        <!-- 紫三角: RESOURCE SHARING -->
+        <div class="flex items-center">
+          <div class="w-6 flex justify-center">
+            <div class="inline-block w-0 h-0 border-l-[5px] border-r-[5px] border-b-[10px] border-l-transparent border-r-transparent border-b-[#560bad]"></div>
+          </div>
+          <span>RESOURCE SHARING</span>
+        </div>
+
+        <!-- 粉方块: EMOTIONAL SYNC -->
+        <div class="flex items-center">
+          <div class="w-6 flex justify-center"><span class="inline-block w-3 h-3 bg-[#ff70a6]"></span></div>
+          <span>EMOTIONAL SYNC</span>
+        </div>
+
+        <!-- 黄绿长条: SPATIAL NEGOTIATION -->
+        <div class="flex items-center">
+          <div class="w-6 flex justify-center"><span class="inline-block w-4 h-1.5 bg-[#d4d700]"></span></div>
+          <span>SPATIAL NEGOTIATION</span>
+        </div>
+      </div>
+      
+      <!-- 右下：时间切片数据面板 -->
+      <div class="text-right w-64 bg-white/90 p-4 border border-gray-200">
+        <p class="font-bold border-b border-black pb-1 mb-2">TIME SLICE ANALYSIS</p>
+        <p class="text-2xl font-bold mb-2" id="stat-year">ALL TIME</p>
+        <div class="space-y-1 text-[10px] text-gray-600">
+          <p class="flex justify-between"><span>DOMINANT:</span> <span id="stat-dom" class="font-bold text-black">MIXED EQUILIBRIUM</span></p>
+          <p class="flex justify-between"><span>CARE INDEX:</span> <span id="stat-care">0.82</span></p>
+          <p class="flex justify-between"><span>CONFLICT:</span> <span id="stat-conflict">0.45</span></p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 底部正中央：时间轴拨盘与副标题 -->
+  <!-- ========================================== -->
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 w-1/3 z-20 flex flex-col items-center ui-overlay">
+    <div class="w-full interactive bg-white/80 px-4 py-3 border border-gray-100 shadow-sm">
+      <div class="flex justify-between text-gray-500 mb-2 text-[10px]">
+        <span>ALL TIME</span>
+        <span>2042</span>
+        <span>2050</span>
+      </div>
+      <input type="range" id="time-slider" min="0" max="9" value="0">
+    </div>
+    <p class="mt-6 text-gray-800 tracking-[0.2em] uppercase font-bold bg-white/80 px-2">
+      All Co-residence Relationships Over Time
+    </p>
+  </div>
+
+  <!-- 提示：缩放操作 -->
+  <div class="absolute top-1/2 left-10 -translate-y-1/2 z-10 text-[10px] text-gray-400 rotate-180" style="writing-mode: vertical-rl;">
+    &larr; SCROLL TO ZOOM / DRAG TO PAN &rarr;
+  </div>
+
+  <!-- P5.js 画布 -->
+  <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+  <script>
+    // ==========================================
+    // 全局数据与控制配置
+    // ==========================================
+    const START_YEAR = 2042;
+    const END_YEAR = 2050;
+    
+    // 视觉配置：确保与图形严格对应
+    const REL_CONFIG = {
+      CO_PRESENCE: { color: "#70d6ff", shape: "CIRCLE",    baseLayer: 1 }, 
+      CARE:        { color: "#d00000", shape: "CROSS",     baseLayer: 2 },
+      RESOURCE:    { color: "#560bad", shape: "TRIANGLE",  baseLayer: 3 },
+      EMOTIONAL:   { color: "#ff70a6", shape: "SQUARE",    baseLayer: 4 },
+      SPATIAL:     { color: "#d4d700", shape: "BAR",       baseLayer: 5 }  
+    };
+    const REL_TYPES = Object.keys(REL_CONFIG);
+
+    let dataPoints = []; 
+    let currentYearFilter = 0; 
+    
+    // 摄像机控制
+    let cam = { x: 0, y: 0, zoom: 0.85, targetX: 0, targetY: 0, targetZoom: 0.85 };
+    let isDragging = false;
+    let dragStartX = 0; let dragStartY = 0;
+
+    let globalRotation = 0;
+
+    function setup() {
+      let canvas = createCanvas(windowWidth, windowHeight);
+      canvas.parent('canvas-container');
+      
+      generateCivilizationData(5000); 
+      document.getElementById('node-count').innerText = dataPoints.length.toLocaleString();
+
+      document.getElementById('time-slider').addEventListener('input', (e) => {
+        currentYearFilter = parseInt(e.target.value);
+        updateDataPanel();
+      });
+    }
+
+    function generateCivilizationData(totalCount) {
+      let innerRadiusBase = 120; 
+      let yearGap = 35; 
+      
+      for (let i = 0; i < totalCount; i++) {
+        let yearOffset = floor(random(0, random(0, 9))); 
+        let year = START_YEAR + yearOffset;
+        
+        let type = random(REL_TYPES);
+        let conf = REL_CONFIG[type];
+        
+        let baseR = innerRadiusBase + (yearOffset * yearGap);
+        let layerOffset = (conf.baseLayer - 3) * 6; 
+        let radius = baseR + layerOffset + random(-3, 3);
+        
+        let angle = random(TWO_PI);
+        let arcLength = random(0.05, 0.2); 
+
+        dataPoints.push({
+          year: year, type: type, r: radius, angle: angle, arcLen: arcLength,
+          color: color(conf.color), shape: conf.shape, size: random(2, 5)
+        });
+      }
+      dataPoints.sort((a, b) => a.r - b.r);
+    }
+
+    function draw() {
+      background(255);
+      globalRotation += 0.0005; 
+
+      cam.zoom = lerp(cam.zoom, cam.targetZoom, 0.1);
+      cam.x = lerp(cam.x, cam.targetX, 0.1);
+      cam.y = lerp(cam.y, cam.targetY, 0.1);
+
+      push();
+      translate(width / 2 + cam.x, height / 2 + cam.y);
+      scale(cam.zoom);
+      rotate(globalRotation);
+
+      drawTimeAxis();
+      drawDataParticles();
+      
+      if (currentYearFilter === 0) drawRadarScanner();
+      pop();
+    }
+
+    function drawTimeAxis() {
+      let innerRadiusBase = 120;
+      let yearGap = 35;
+      
+      noFill();
+      textAlign(CENTER, CENTER);
+      textSize(8 / cam.zoom); 
+      
+      for (let y = 0; y <= 8; y++) {
+        let currentR = innerRadiusBase + (y * yearGap);
+        let actualYear = START_YEAR + y;
+        let isSelected = (currentYearFilter === 0 || currentYearFilter === y + 1);
+        
+        if (isSelected) {
+          stroke(180); strokeWeight(0.5); drawingContext.setLineDash([2, 6]);
+        } else {
+          stroke(230); strokeWeight(0.5); drawingContext.setLineDash([1, 8]);
+        }
+        
+        circle(0, 0, currentR * 2);
+        
+        if (isSelected && cam.zoom > 0.5) {
+          push();
+          rotate(-globalRotation); 
+          fill(150); noStroke();
+          text(actualYear, 0, -currentR - 6);
+          pop();
+        }
+      }
+      drawingContext.setLineDash([]);
+    }
+
+    function drawDataParticles() {
+      noStroke();
+      let isMicroMode = (cam.zoom > 2.5); 
+      
+      for (let p of dataPoints) {
+        let isYearMatch = (currentYearFilter === 0 || p.year === (START_YEAR + currentYearFilter - 1));
+        
+        if (!isYearMatch) {
+          fill(200, 20);
+          circle(cos(p.angle) * p.r, sin(p.angle) * p.r, p.size * 0.5);
+          continue;
+        }
+
+        let c = p.color;
+        
+        if (!isMicroMode) {
+          c.setAlpha(150); 
+          stroke(c);
+          strokeWeight(p.size * 1.5); 
+          noFill(); strokeCap(SQUARE);
+          arc(0, 0, p.r * 2, p.r * 2, p.angle, p.angle + p.arcLen);
+        } else {
+          c.setAlpha(255); 
+          fill(c); noStroke();
+          
+          push();
+          translate(cos(p.angle) * p.r, sin(p.angle) * p.r);
+          rotate(p.angle + PI/2);
+          
+          let s = p.size * 1.2; 
+          
+          // 严格按图二绘制形状
+          if (p.shape === 'CIRCLE') circle(0, 0, s*1.2);
+          else if (p.shape === 'CROSS') { rectMode(CENTER); rect(0, 0, s*1.5, s*0.4); rect(0, 0, s*0.4, s*1.5); }
+          else if (p.shape === 'TRIANGLE') triangle(0, -s, s*0.8, s*0.8, -s*0.8, s*0.8);
+          else if (p.shape === 'SQUARE') { rectMode(CENTER); square(0, 0, s*1.2); }
+          else if (p.shape === 'BAR') { rectMode(CENTER); rect(0, 0, s*2, s*0.5); }
+          
+          pop();
+        }
+      }
+    }
+
+    function drawRadarScanner() {
+      let scanAngle = frameCount * 0.01;
+      let maxR = 120 + (8 * 35) + 20; 
+      
+      push();
+      rotate(scanAngle);
+      for(let i=0; i<20; i++) {
+        stroke(0, 0, 0, map(i, 0, 20, 30, 0));
+        strokeWeight(1);
+        line(0, 0, maxR, 0);
+        rotate(-0.01);
+      }
+      pop();
+    }
+
+    function mouseWheel(event) {
+      let zoomAmount = event.deltaY * -0.001;
+      cam.targetZoom += zoomAmount * cam.targetZoom; 
+      cam.targetZoom = constrain(cam.targetZoom, 0.4, 15.0); 
+      return false; 
+    }
+
+    function mousePressed() {
+      if (mouseY > height - 100) return;
+      isDragging = true;
+      dragStartX = mouseX - cam.targetX;
+      dragStartY = mouseY - cam.targetY;
+    }
+
+    function mouseDragged() {
+      if (isDragging) {
+        cam.targetX = mouseX - dragStartX;
+        cam.targetY = mouseY - dragStartY;
+      }
+    }
+
+    function mouseReleased() {
+      isDragging = false;
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+
+    function updateDataPanel() {
+      const statYear = document.getElementById('stat-year');
+      const statDom = document.getElementById('stat-dom');
+      const statCare = document.getElementById('stat-care');
+      const statConf = document.getElementById('stat-conflict');
+
+      if (currentYearFilter === 0) {
+        statYear.innerText = "ALL TIME";
+        statDom.innerText = "MIXED EQUILIBRIUM";
+        statDom.style.color = "#000";
+        statCare.innerText = "0.82";
+        statConf.innerText = "0.45";
+      } else {
+        let actualYear = START_YEAR + currentYearFilter - 1;
+        statYear.innerText = actualYear;
+        
+        let fakeCare = (0.5 + (currentYearFilter * 0.05)).toFixed(2);
+        let fakeConf = (0.8 - (currentYearFilter * 0.04)).toFixed(2);
+        statCare.innerText = fakeCare;
+        statConf.innerText = fakeConf;
+
+        if (actualYear <= 2044) {
+          statDom.innerText = "SPATIAL NEGOTIATION";
+          statDom.style.color = "#d4d700";
+        } else if (actualYear <= 2047) {
+          statDom.innerText = "RESOURCE SHARING";
+          statDom.style.color = "#560bad";
+        } else {
+          statDom.innerText = "CARE & EMOTIONAL";
+          statDom.style.color = "#d00000";
+        }
+      }
+    }
+  </script>
+</body>
+</html>
